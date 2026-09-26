@@ -264,7 +264,11 @@ class MainActivity : AppCompatActivity() {
             textSize = 16f
             setPadding(0,0,0,12)
         })
-        addCourtHalf(0, teams[0].name, false)
+        if (servingTeam == 1) {
+            addReceptionView()
+        } else {
+            addCourtHalf(0, teams[0].name, false)
+        }
 
         root.addView(button("ΠΟΝΤΟΣ ΔΙΚΟΣ ΜΑΣ") { pointWonBy(0) })
         root.addView(button("ΠΟΝΤΟΣ ΑΝΤΙΠΑΛΟΥ") { pointWonBy(1) })
@@ -289,6 +293,46 @@ class MainActivity : AppCompatActivity() {
         selected[ti][2] = old[3] // P4 -> P3
         selected[ti][1] = old[2] // P3 -> P2
         selected[ti][0] = old[1] // P2 -> P1
+    }
+
+    private fun addReceptionView() {
+        root.addView(TextView(this).apply {
+            text = "${teams[0].name} — ΥΠΟΔΟΧΗ"
+            gravity = Gravity.CENTER
+            textSize = 18f
+            setPadding(0,8,0,8)
+        })
+
+        val court = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(8,24,8,24)
+            background = GradientDrawable().apply {
+                setColor(Color.rgb(238,177,104))
+                setStroke(3,Color.WHITE)
+            }
+        }
+
+        val receiverRoles = arrayOf("ΑΚ1", "Λ", "ΑΚ2")
+        receiverRoles.forEach { role ->
+            val player = teams[0].roster.firstOrNull { it.role == role }
+            court.addView(TextView(this).apply {
+                text = if (player != null && player.name.isNotBlank()) {
+                    "${player.name}\n[$role]"
+                } else {
+                    role
+                }
+                gravity = Gravity.CENTER
+                textSize = 15f
+                setTextColor(Color.BLACK)
+                setPadding(4,4,4,4)
+                background = GradientDrawable().apply {
+                    setColor(Color.argb(35,255,255,255))
+                    setStroke(2,Color.WHITE)
+                }
+            }, LinearLayout.LayoutParams(0,150,1f))
+        }
+        root.addView(court)
     }
 
     private fun addCourtHalf(ti:Int,title:String,opponent:Boolean){
