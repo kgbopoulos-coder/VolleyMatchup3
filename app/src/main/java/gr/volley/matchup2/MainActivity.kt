@@ -332,6 +332,7 @@ class MainActivity : AppCompatActivity() {
                             val pct = ((n * 100.0) / total).toInt()
                             append("\n${index + 1}. $name — $n ($pct%) • Πίσω $back • Μπροστά $front")
                         }
+                        append("\nΣτατιστικά: όλα τα αντίπαλα service του τρέχοντος σετ")
                         append("\nΠατήστε για πλήρη ανάλυση")
                     }
                 }
