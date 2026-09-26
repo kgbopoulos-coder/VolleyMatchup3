@@ -303,16 +303,7 @@ class MainActivity : AppCompatActivity() {
             setPadding(0,8,0,8)
         })
 
-        val court = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-            setPadding(8,24,8,24)
-            background = GradientDrawable().apply {
-                setColor(Color.rgb(238,177,104))
-                setStroke(3,Color.WHITE)
-            }
-        }
-
+        // Find which middle is currently in the back row. The libero replaces that middle.
         val backMiddle = (0..5)
             .mapNotNull { pos ->
                 val ix = selected[0][pos]
@@ -323,19 +314,66 @@ class MainActivity : AppCompatActivity() {
             }?.first
 
         val libero = teams[0].roster.firstOrNull { it.role == "Λ" }
-        val receiverRoles = arrayOf("ΑΚ1", "Λ", "ΑΚ2")
-        receiverRoles.forEach { role ->
-            val player = if (role == "Λ" && backMiddle != null) libero
+
+        // Determine the current rotation from the setter's court position.
+        // P1 means setter at P1, P2 setter at P2, etc.
+        val setterPos = (0..5).firstOrNull { pos ->
+            val ix = selected[0][pos]
+            ix in 0..13 && teams[0].roster[ix].role == "Π"
+        } ?: 0
+        val rotation = setterPos + 1
+
+        // Reception map agreed for our team:
+        // R1/R6: P1 AK1, P6 L, P5 AK2
+        // R5/R4: P1 L,   P6 AK1, P5 AK2
+        // R3/R2: P1 AK2, P6 L, P5 AK1
+        val receptionRoles = when (rotation) {
+            1, 6 -> arrayOf("ΑΚ1", "Λ", "ΑΚ2")
+            4, 5 -> arrayOf("Λ", "ΑΚ1", "ΑΚ2")
+            2, 3 -> arrayOf("ΑΚ2", "Λ", "ΑΚ1")
+            else -> arrayOf("ΑΚ1", "Λ", "ΑΚ2")
+        }
+
+        root.addView(TextView(this).apply {
+            text = "ΠΕΡΙΣΤΡΟΦΗ P$rotation"
+            gravity = Gravity.CENTER
+            textSize = 15f
+            setPadding(0,0,0,8)
+        })
+
+        val court = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(8,8,8,8)
+            background = GradientDrawable().apply {
+                setColor(Color.rgb(238,177,104))
+                setStroke(3,Color.WHITE)
+            }
+        }
+
+        // Only the three reception positions are shown:
+        // top, left -> right = P1, P6, P5
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+
+        receptionRoles.forEachIndexed { index, role ->
+            val player = if (role == "Λ") libero
                          else teams[0].roster.firstOrNull { it.role == role }
-            court.addView(TextView(this).apply {
-                text = if (player != null && player.name.isNotBlank()) {
-                    if (role == "Λ" && backMiddle != null) "${player.name}\n[Λ αντί ${backMiddle.role}]"
-                    else "${player.name}\n[$role]"
-                } else {
-                    role
+            val courtPos = arrayOf("P1", "P6", "P5")[index]
+
+            row.addView(TextView(this).apply {
+                text = buildString {
+                    append(courtPos)
+                    append("\n")
+                    if (player != null && player.name.isNotBlank()) append(player.name) else append(role)
+                    append("\n[")
+                    if (role == "Λ" && backMiddle != null) append("Λ αντί ${backMiddle.role}")
+                    else append(role)
+                    append("]")
                 }
                 gravity = Gravity.CENTER
-                textSize = 15f
+                textSize = 14f
                 setTextColor(Color.BLACK)
                 setPadding(4,4,4,4)
                 background = GradientDrawable().apply {
@@ -344,6 +382,8 @@ class MainActivity : AppCompatActivity() {
                 }
             }, LinearLayout.LayoutParams(0,150,1f))
         }
+
+        court.addView(row)
         root.addView(court)
     }
 
