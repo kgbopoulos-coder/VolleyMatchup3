@@ -21,7 +21,7 @@ data class Team(var name: String, val roster: MutableList<Player> = MutableList(
 
 class MainActivity : AppCompatActivity() {
     private val teams = arrayOf(Team("ΔΙΚΗ ΜΑΣ ΟΜΑΔΑ"), Team("ΑΝΤΙΠΑΛΗ ΟΜΑΔΑ"))
-    private val roles = arrayOf("Π", "Δ", "ΑΚ", "Κ", "Λ")
+    private val roles = arrayOf("Π", "ΑΚ1", "ΑΚ2", "Κ1", "Κ2", "Δ", "Λ")
     private val selected = Array(2) { IntArray(6) { -1 } }
     private var teamIndex = 0
     private var servingTeam = 0 // 0 = δική μας, 1 = αντίπαλη
