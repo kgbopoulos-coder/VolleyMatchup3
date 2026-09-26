@@ -24,6 +24,7 @@ class MainActivity : AppCompatActivity() {
     private val roles = arrayOf("Π", "Δ", "ΑΚ", "Κ", "Λ")
     private val selected = Array(2) { IntArray(6) { -1 } }
     private var teamIndex = 0
+    private var servingTeam = 0 // 0 = δική μας, 1 = αντίπαλη
     private lateinit var root: LinearLayout
     private lateinit var currentScroll: ScrollView
 
@@ -216,12 +217,37 @@ class MainActivity : AppCompatActivity() {
 
     private fun showCourt() {
         base("ΓΗΠΕΔΟ")
-        addCourtHalf(1, teams[1].name, true)
         root.addView(TextView(this).apply {
-            text="────────  ΦΙΛΕΣ  ────────"; gravity=Gravity.CENTER; textSize=16f; setPadding(0,12,0,12)
+            text = if (servingTeam == 0) "SERVICE: ${teams[0].name}" else "SERVICE: ${teams[1].name}"
+            gravity = Gravity.CENTER
+            textSize = 16f
+            setPadding(0,0,0,12)
         })
         addCourtHalf(0, teams[0].name, false)
+
+        root.addView(button("ΠΟΝΤΟΣ ΔΙΚΟΣ ΜΑΣ") { pointWonBy(0) })
+        root.addView(button("ΠΟΝΤΟΣ ΑΝΤΙΠΑΛΟΥ") { pointWonBy(1) })
         root.addView(button("ΠΙΣΩ"){showHome()})
+    }
+
+    private fun pointWonBy(winner: Int) {
+        if (winner != servingTeam) {
+            rotateTeam(winner)
+            servingTeam = winner
+        }
+        showCourt()
+    }
+
+    private fun rotateTeam(ti: Int) {
+        // Volleyball clockwise rotation:
+        // player at P1 -> P6 -> P5 -> P4 -> P3 -> P2 -> P1
+        val old = selected[ti].clone()
+        selected[ti][5] = old[0] // P1 -> P6
+        selected[ti][4] = old[5] // P6 -> P5
+        selected[ti][3] = old[4] // P5 -> P4
+        selected[ti][2] = old[3] // P4 -> P3
+        selected[ti][1] = old[2] // P3 -> P2
+        selected[ti][0] = old[1] // P2 -> P1
     }
 
     private fun addCourtHalf(ti:Int,title:String,opponent:Boolean){
