@@ -462,10 +462,26 @@ class MainActivity : AppCompatActivity() {
                     val zonePct = ((zoneN * 100.0) / oldTotal).toInt()
                     val targetName = teams[0].roster.firstOrNull { it.role == topRole }?.name?.takeIf { it.isNotBlank() } ?: topRole
                     root.addView(TextView(this).apply {
-                        text = "⚠ ΠΡΟΣΟΧΗ — ${server.name.ifBlank { server.number.ifBlank { "SERVER" } }}\n" +
-                               "Αφορά: συγκεκριμένη server — ${server.name.ifBlank { server.number.ifBlank { "SERVER" } }}\n" +
-                               "Καταγραφές της server: $oldTotal\n" +
-                               "Στόχος: $topPct% → $targetName • Ζώνη: $zonePct% $zone"
+                        val serverLabel = server.name.ifBlank { server.number.ifBlank { "SERVER" } }
+                        text = buildString {
+                            append("⚠ ΠΡΟΣΟΧΗ — ")
+                            append(serverLabel)
+                            append('\n')
+                            append("Αφορά: συγκεκριμένη server — ")
+                            append(serverLabel)
+                            append('\n')
+                            append("Καταγραφές της server: ")
+                            append(oldTotal)
+                            append('\n')
+                            append("Στόχος: ")
+                            append(topPct)
+                            append("% → ")
+                            append(targetName)
+                            append(" • Ζώνη: ")
+                            append(zonePct)
+                            append("% ")
+                            append(zone)
+                        }
                         gravity = Gravity.CENTER
                         textSize = 14f
                         setPadding(14,10,14,10)
