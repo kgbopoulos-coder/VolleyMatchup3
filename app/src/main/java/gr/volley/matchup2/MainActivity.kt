@@ -31,6 +31,10 @@ class MainActivity : AppCompatActivity() {
     private val receptionBackCounts = mutableMapOf<String, Int>()
     private val receptionFrontCounts = mutableMapOf<String, Int>()
     private val receptionPositionCounts = mutableMapOf<String, Int>()
+    private var currentSet = 1
+    private val previousSetCounts = mutableMapOf<String, Int>()
+    private val previousSetBackCounts = mutableMapOf<String, Int>()
+    private val previousSetFrontCounts = mutableMapOf<String, Int>()
     private lateinit var root: LinearLayout
     private lateinit var currentScroll: ScrollView
 
@@ -305,6 +309,37 @@ class MainActivity : AppCompatActivity() {
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply { setMargins(0,0,0,12) })
+
+            if (previousSetCounts.values.sum() > 0) {
+                val previousTotal = previousSetCounts.values.sum()
+                root.addView(TextView(this).apply {
+                    text = buildString {
+                        append("ΠΡΟΗΓΟΥΜΕΝΟ ΣΕΤ")
+                        arrayOf("ΑΚ1","ΑΚ2","Λ")
+                            .sortedByDescending { previousSetCounts[it] ?: 0 }
+                            .forEachIndexed { index, role ->
+                                val n = previousSetCounts[role] ?: 0
+                                val player = teams[0].roster.firstOrNull { it.role == role }
+                                val name = player?.name?.takeIf { it.isNotBlank() } ?: role
+                                val back = previousSetBackCounts[role] ?: 0
+                                val front = previousSetFrontCounts[role] ?: 0
+                                val pct = ((n * 100.0) / previousTotal).toInt()
+                                append("\n${index + 1}. $name — $n ($pct%) • Πίσω $back • Μπροστά $front")
+                            }
+                    }
+                    gravity = Gravity.CENTER
+                    textSize = 13f
+                    setPadding(14,10,14,10)
+                    background = GradientDrawable().apply {
+                        setColor(Color.argb(12,32,32,95))
+                        setStroke(1, Color.GRAY)
+                        cornerRadius = 14f
+                    }
+                }, LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { setMargins(0,0,0,12) })
+            }
         }
 
         if (servingTeam == 1) {
@@ -316,7 +351,35 @@ class MainActivity : AppCompatActivity() {
         root.addView(button("ΠΟΝΤΟΣ ΔΙΚΟΣ ΜΑΣ") { pointWonBy(0) })
         root.addView(button("ΠΟΝΤΟΣ ΑΝΤΙΠΑΛΟΥ") { pointWonBy(1) })
         root.addView(button("ΜΟΤΙΒΟ SERVICE") { showServicePattern() })
+        root.addView(button("ΤΕΛΟΣ ΣΕΤ") { confirmEndSet() })
         root.addView(button("ΠΙΣΩ"){showHome()})
+    }
+
+    private fun confirmEndSet() {
+        AlertDialog.Builder(this)
+            .setTitle("Τέλος σετ $currentSet")
+            .setMessage("Να αποθηκευτούν οι υποδοχές ως προηγούμενο σετ και να ξεκινήσει το σετ ${currentSet + 1};")
+            .setPositiveButton("ΝΑΙ") { _, _ -> endSet() }
+            .setNegativeButton("ΑΚΥΡΟ", null)
+            .show()
+    }
+
+    private fun endSet() {
+        previousSetCounts.clear()
+        previousSetCounts.putAll(receptionCounts)
+        previousSetBackCounts.clear()
+        previousSetBackCounts.putAll(receptionBackCounts)
+        previousSetFrontCounts.clear()
+        previousSetFrontCounts.putAll(receptionFrontCounts)
+
+        receptionCounts.clear()
+        receptionCountsByRotation.clear()
+        receptionBackCounts.clear()
+        receptionFrontCounts.clear()
+        receptionPositionCounts.clear()
+        currentSet++
+        Toast.makeText(this, "Έναρξη σετ $currentSet", Toast.LENGTH_SHORT).show()
+        showCourt()
     }
 
     private fun pointWonBy(winner: Int) {
