@@ -26,6 +26,8 @@ class MainActivity : AppCompatActivity() {
     private var teamIndex = 0
     private var servingTeam = 0 // 0 = δική μας, 1 = αντίπαλη
     private val initialRotation = intArrayOf(1, 1)
+    private val receptionCounts = mutableMapOf<String, Int>()
+    private val receptionCountsByRotation = mutableMapOf<String, Int>()
     private lateinit var root: LinearLayout
     private lateinit var currentScroll: ScrollView
 
@@ -303,39 +305,31 @@ class MainActivity : AppCompatActivity() {
             setPadding(0,8,0,8)
         })
 
-        // Find which middle is currently in the back row. The libero replaces that middle.
         val backMiddle = (0..5)
             .mapNotNull { pos ->
                 val ix = selected[0][pos]
                 if (ix in 0..13) teams[0].roster[ix] to pos else null
             }
             .firstOrNull { (player, pos) ->
-                player.role in arrayOf("Κ1", "Κ2") && pos in arrayOf(0, 4, 5)
+                player.role in arrayOf("Κ1", "Κ2") && pos in arrayOf(0,4,5)
             }?.first
-
         val libero = teams[0].roster.firstOrNull { it.role == "Λ" }
 
-        // Determine the current rotation from the setter's court position.
-        // P1 means setter at P1, P2 setter at P2, etc.
         val setterPos = (0..5).firstOrNull { pos ->
             val ix = selected[0][pos]
             ix in 0..13 && teams[0].roster[ix].role == "Π"
         } ?: 0
         val rotation = setterPos + 1
 
-        // Reception map agreed for our team:
-        // R1/R6: P1 AK1, P6 L, P5 AK2
-        // R5/R4: P1 L,   P6 AK1, P5 AK2
-        // R3/R2: P1 AK2, P6 L, P5 AK1
-        val receptionRoles = when (rotation) {
-            1, 6 -> arrayOf("ΑΚ1", "Λ", "ΑΚ2")
-            4, 5 -> arrayOf("Λ", "ΑΚ1", "ΑΚ2")
-            2, 3 -> arrayOf("ΑΚ2", "Λ", "ΑΚ1")
-            else -> arrayOf("ΑΚ1", "Λ", "ΑΚ2")
+        val receiverRoles = when(rotation) {
+            1,6 -> arrayOf("ΑΚ1","Λ","ΑΚ2")
+            4,5 -> arrayOf("Λ","ΑΚ1","ΑΚ2")
+            2,3 -> arrayOf("ΑΚ2","Λ","ΑΚ1")
+            else -> arrayOf("ΑΚ1","Λ","ΑΚ2")
         }
 
         root.addView(TextView(this).apply {
-            text = "ΠΕΡΙΣΤΡΟΦΗ P$rotation"
+            text = "ΠΕΡΙΣΤΡΟΦΗ P$rotation — Πάτησε τη θέση της υποδοχής"
             gravity = Gravity.CENTER
             textSize = 15f
             setPadding(0,0,0,8)
@@ -350,41 +344,61 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Only the three reception positions are shown:
-        // top, left -> right = P1, P6, P5
-        val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-        }
+        // Each reception lane belongs to the same receiver in front and back:
+        // P1/P2, P6/P3, P5/P4.
+        val positionRows = arrayOf(
+            arrayOf("P1","P6","P5"),
+            arrayOf("P2","P3","P4")
+        )
 
-        receptionRoles.forEachIndexed { index, role ->
-            val player = if (role == "Λ") libero
-                         else teams[0].roster.firstOrNull { it.role == role }
-            val courtPos = arrayOf("P1", "P6", "P5")[index]
-
-            row.addView(TextView(this).apply {
-                text = buildString {
-                    append(courtPos)
-                    append("\n")
-                    if (player != null && player.name.isNotBlank()) append(player.name) else append(role)
-                    append("\n[")
-                    if (role == "Λ" && backMiddle != null) append("Λ αντί ${backMiddle.role}")
-                    else append(role)
-                    append("]")
-                }
+        positionRows.forEach { positions ->
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER
-                textSize = 14f
-                setTextColor(Color.BLACK)
-                setPadding(4,4,4,4)
-                background = GradientDrawable().apply {
-                    setColor(Color.argb(35,255,255,255))
-                    setStroke(2,Color.WHITE)
-                }
-            }, LinearLayout.LayoutParams(0,150,1f))
+            }
+            positions.forEachIndexed { column, courtPos ->
+                val role = receiverRoles[column]
+                val player = if(role == "Λ") libero
+                             else teams[0].roster.firstOrNull { it.role == role }
+                row.addView(Button(this).apply {
+                    text = buildString {
+                        append(courtPos)
+                        append("\n")
+                        if(player != null && player.name.isNotBlank()) append(player.name) else append(role)
+                        append("\n[")
+                        if(role == "Λ" && backMiddle != null) append("Λ αντί ${backMiddle.role}")
+                        else append(role)
+                        append("]")
+                    }
+                    textSize = 12f
+                    isAllCaps = false
+                    setOnClickListener {
+                        recordReception(player, role, rotation)
+                    }
+                }, LinearLayout.LayoutParams(0,150,1f))
+            }
+            court.addView(row)
         }
-
-        court.addView(row)
         root.addView(court)
+
+        val totals = arrayOf("ΑΚ1","ΑΚ2","Λ").joinToString("   ") { role ->
+            "$role: ${receptionCounts[role] ?: 0}"
+        }
+        root.addView(TextView(this).apply {
+            text = "ΣΥΝΟΛΟ ΥΠΟΔΟΧΩΝ\n$totals"
+            gravity = Gravity.CENTER
+            textSize = 15f
+            setPadding(0,12,0,8)
+        })
+    }
+
+    private fun recordReception(player: Player?, role: String, rotation: Int) {
+        receptionCounts[role] = (receptionCounts[role] ?: 0) + 1
+        val key = "P$rotation|$role"
+        receptionCountsByRotation[key] = (receptionCountsByRotation[key] ?: 0) + 1
+        val who = player?.name?.takeIf { it.isNotBlank() } ?: role
+        Toast.makeText(this, "+1 υποδοχή: $who", Toast.LENGTH_SHORT).show()
+        showCourt()
     }
 
     private fun addCourtHalf(ti:Int,title:String,opponent:Boolean){
