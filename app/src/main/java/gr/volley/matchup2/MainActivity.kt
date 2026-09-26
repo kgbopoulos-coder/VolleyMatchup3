@@ -45,6 +45,7 @@ class MainActivity : AppCompatActivity() {
     private val serverPreviousCounts = mutableMapOf<String, MutableMap<String, Int>>()
     private val serverPreviousBackCounts = mutableMapOf<String, MutableMap<String, Int>>()
     private val serverPreviousFrontCounts = mutableMapOf<String, MutableMap<String, Int>>()
+    private val serverSetCounts = mutableMapOf<String, MutableMap<String, Int>>()
     private lateinit var root: LinearLayout
     private lateinit var currentScroll: ScrollView
     private var currentScreen = "HOME"
@@ -386,113 +387,31 @@ class MainActivity : AppCompatActivity() {
         })
 
         if (servingTeam == 1) {
-            val total = receptionCounts.values.sum()
-            root.addView(TextView(this).apply {
-                text = if (total == 0) {
-                    "ΜΟΤΙΒΟ SERVICE\nΔεν υπάρχουν ακόμη καταγραφές"
-                } else {
-                    val ranked = arrayOf("ΑΚ1","ΑΚ2","Λ")
-                        .sortedByDescending { receptionCounts[it] ?: 0 }
-                    buildString {
-                        append("ΜΟΤΙΒΟ SERVICE")
-                        ranked.forEachIndexed { index, role ->
-                            val n = receptionCounts[role] ?: 0
-                            val player = teams[0].roster.firstOrNull { it.role == role }
-                            val name = player?.name?.takeIf { it.isNotBlank() } ?: role
-                            val back = receptionBackCounts[role] ?: 0
-                            val front = receptionFrontCounts[role] ?: 0
-                            val pct = ((n * 100.0) / total).toInt()
-                            append("\n${index + 1}. $name — $n ($pct%) • Πίσω $back • Μπροστά $front")
-                        }
-                        append("\nΑφορά: ΟΛΕΣ τις αντίπαλες server • ΤΡΕΧΟΝ ΣΕΤ")
-                        append("\n% = ποσοστό υποδοχών ανά παίκτρια • Πίσω/Μπροστά = ζώνη υποδοχής")
-                        append("\nΠατήστε για πλήρη ανάλυση")
-                    }
-                }
-                gravity = Gravity.CENTER
-                textSize = 14f
-                setPadding(14,12,14,12)
-                background = GradientDrawable().apply {
-                    setColor(Color.argb(22,32,32,95))
-                    setStroke(2, Color.rgb(32,32,95))
-                    cornerRadius = 14f
-                }
-                setOnClickListener { showServicePattern() }
-            }, LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { setMargins(0,0,0,12) })
-
-            if (completedSetCounts.values.sum() > 0) {
-                val completedTotal = completedSetCounts.values.sum()
-                root.addView(TextView(this).apply {
-                    text = buildString {
-                        append("ΣΥΝΟΛΟ ΠΡΟΗΓΟΥΜΕΝΩΝ ΣΕΤ — $completedTotal ΥΠΟΔΟΧΕΣ")
-                        append("\nΑφορά: ΟΛΕΣ τις αντίπαλες server • ΜΟΝΟ ολοκληρωμένα προηγούμενα σετ")
-                        arrayOf("ΑΚ1","ΑΚ2","Λ").sortedByDescending { completedSetCounts[it] ?: 0 }
-                            .forEachIndexed { index, role ->
-                                val n = completedSetCounts[role] ?: 0
-                                val name = teams[0].roster.firstOrNull { it.role == role }?.name?.takeIf { it.isNotBlank() } ?: role
-                                val back = completedSetBackCounts[role] ?: 0
-                                val front = completedSetFrontCounts[role] ?: 0
-                                val pct = ((n * 100.0) / completedTotal).toInt()
-                                append("\n${index + 1}. $name — $n ($pct%) • Πίσω $back • Μπροστά $front")
-                            }
-                    }
-                    gravity = Gravity.CENTER
-                    textSize = 13f
-                    setPadding(14,10,14,10)
-                    background = GradientDrawable().apply {
-                        setColor(Color.argb(18,32,32,95)); setStroke(1,Color.rgb(32,32,95)); cornerRadius=14f
-                    }
-                }, LinearLayout.LayoutParams(-1,-2).apply { setMargins(0,0,0,12) })
-            }
-
             val server = currentOpponentServer()
-            if (server != null) {
-                val serverKey = serverKey(server)
-                val old = serverPreviousCounts[serverKey]
-                val oldTotal = old?.values?.sum() ?: 0
-                if (oldTotal >= 3) {
-                    val topRole = arrayOf("ΑΚ1","ΑΚ2","Λ").maxByOrNull { old?.get(it) ?: 0 } ?: "ΑΚ1"
-                    val topN = old?.get(topRole) ?: 0
-                    val topPct = ((topN * 100.0) / oldTotal).toInt()
-                    val oldBack = serverPreviousBackCounts[serverKey]?.values?.sum() ?: 0
-                    val oldFront = serverPreviousFrontCounts[serverKey]?.values?.sum() ?: 0
-                    val zone = if (oldBack >= oldFront) "πίσω" else "μπροστά"
-                    val zoneN = maxOf(oldBack, oldFront)
-                    val zonePct = ((zoneN * 100.0) / oldTotal).toInt()
-                    val targetName = teams[0].roster.firstOrNull { it.role == topRole }?.name?.takeIf { it.isNotBlank() } ?: topRole
-                    root.addView(TextView(this).apply {
-                        val serverLabel = server.name.ifBlank { server.number.ifBlank { "SERVER" } }
-                        text = buildString {
-                            append("⚠ ΠΡΟΣΟΧΗ — ")
-                            append(serverLabel)
-                            append("\\n")
-                            append("Αφορά: συγκεκριμένη server — ")
-                            append(serverLabel)
-                            append("\\n")
-                            append("Καταγραφές της server: ")
-                            append(oldTotal)
-                            append("\\n")
-                            append("Στόχος: ")
-                            append(topPct)
-                            append("% → ")
-                            append(targetName)
-                            append(" • Ζώνη: ")
-                            append(zonePct)
-                            append("% ")
-                            append(zone)
-                        }
-                        gravity = Gravity.CENTER
-                        textSize = 14f
-                        setPadding(14,10,14,10)
-                        background = GradientDrawable().apply {
-                            setColor(Color.argb(30,255,193,7)); setStroke(2,Color.rgb(180,120,0)); cornerRadius=14f
-                        }
-                    }, LinearLayout.LayoutParams(-1,-2).apply { setMargins(0,0,0,12) })
-                }
-            }
+            val sKey = server?.let { serverKey(it) }
+            val serverLabel = server?.let {
+                listOf(it.number, it.name).filter { value -> value.isNotBlank() }.joinToString(" ")
+            }?.takeIf { it.isNotBlank() } ?: "SERVER"
+
+            // 1. Current server in her current service rotation.
+            val rotationCounts = if (sKey != null) serverSetCounts[sKey] else null
+            val rotationTotal = rotationCounts?.values?.sum() ?: 0
+            root.addView(patternPanel("1. ΜΟΤΙΒΟ SERVER — ΤΡΕΧΟΥΣΑ ΠΕΡΙΣΤΡΟΦΗ",
+                if (rotationTotal == 0) "$serverLabel: χωρίς καταγραφή"
+                else patternLines(rotationCounts!!, rotationTotal)))
+
+            // 2. Current server across all sets played so far.
+            val allServerCounts = if (sKey != null) serverPreviousCounts[sKey] else null
+            val allServerTotal = allServerCounts?.values?.sum() ?: 0
+            root.addView(patternPanel("2. ΜΟΤΙΒΟ SERVER — ΣΥΝΟΛΟ ΣΕΤ",
+                if (allServerTotal == 0) "$serverLabel: χωρίς καταγραφή"
+                else "$serverLabel\n" + patternLines(allServerCounts!!, allServerTotal)))
+
+            // 3. Opponent team overall across the match.
+            val teamTotal = matchReceptionCounts.values.sum()
+            root.addView(patternPanel("3. ΜΟΤΙΒΟ ΑΝΤΙΠΑΛΗΣ ΟΜΑΔΑΣ",
+                if (teamTotal == 0) "Χωρίς καταγραφή"
+                else patternLines(matchReceptionCounts, teamTotal)))
         }
 
         if (servingTeam == 1) {
@@ -531,6 +450,7 @@ class MainActivity : AppCompatActivity() {
                 serverPreviousCounts.clear()
                 serverPreviousBackCounts.clear()
                 serverPreviousFrontCounts.clear()
+                serverSetCounts.clear()
                 currentSet = 1
                 Toast.makeText(this, "Τα στατιστικά καθαρίστηκαν", Toast.LENGTH_SHORT).show()
                 showCourt()
@@ -565,6 +485,7 @@ class MainActivity : AppCompatActivity() {
         receptionBackCounts.clear()
         receptionFrontCounts.clear()
         receptionPositionCounts.clear()
+        serverSetCounts.clear()
         currentSet++
         Toast.makeText(this, "Έναρξη σετ $currentSet", Toast.LENGTH_SHORT).show()
         showCourt()
@@ -700,6 +621,8 @@ class MainActivity : AppCompatActivity() {
         if (serverKey != null) {
             val map = serverPreviousCounts.getOrPut(serverKey) { mutableMapOf() }
             map[role] = (map[role] ?: 0) + 1
+            val setMap = serverSetCounts.getOrPut(serverKey) { mutableMapOf() }
+            setMap[role] = (setMap[role] ?: 0) + 1
         }
         val key = "P$rotation|$role"
         receptionCountsByRotation[key] = (receptionCountsByRotation[key] ?: 0) + 1
@@ -735,6 +658,30 @@ class MainActivity : AppCompatActivity() {
     private fun serverKey(player: Player): String =
         player.number.trim() + "|" + player.name.trim()
 
+    private fun patternLines(counts: Map<String, Int>, total: Int): String =
+        arrayOf("ΑΚ1","ΑΚ2","Λ")
+            .sortedByDescending { counts[it] ?: 0 }
+            .joinToString("\n") { role ->
+                val n = counts[role] ?: 0
+                val pct = if (total == 0) 0 else ((n * 100.0) / total).toInt()
+                val name = teams[0].roster.firstOrNull { it.role == role }?.name?.takeIf { it.isNotBlank() } ?: role
+                "$name — $n ($pct%)"
+            }
+
+    private fun patternPanel(title: String, body: String): TextView =
+        TextView(this).apply {
+            text = "$title\n$body"
+            gravity = Gravity.CENTER
+            textSize = 14f
+            setPadding(14,12,14,12)
+            background = GradientDrawable().apply {
+                setColor(Color.argb(22,32,32,95))
+                setStroke(2, Color.rgb(32,32,95))
+                cornerRadius = 14f
+            }
+            layoutParams = LinearLayout.LayoutParams(-1,-2).apply { setMargins(0,0,0,12) }
+        }
+
     private fun showServicePattern() {
         currentScreen = "PATTERN"
         base("ΜΟΤΙΒΟ SERVICE")
@@ -753,7 +700,7 @@ class MainActivity : AppCompatActivity() {
         fun pct(n: Int) = ((n * 100.0) / total).toInt()
 
         root.addView(TextView(this).apply {
-            text = "ΣΥΝΟΛΟ SERVICE: $total\nΑφορά: ΟΛΕΣ τις αντίπαλες server • ΤΡΕΧΟΝ ΣΕΤ"
+            text = "ΣΥΝΟΛΟ SERVICE: $total"
             gravity = Gravity.CENTER
             textSize = 18f
             setPadding(0,0,0,16)
@@ -775,7 +722,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         root.addView(TextView(this).apply {
-            text = "ΣΤΟΧΟΣ ΑΝΑ ΘΕΣΗ\nΑφορά: θέση όπου έγινε η υποδοχή • ΤΡΕΧΟΝ ΣΕΤ"
+            text = "ΣΤΟΧΟΣ ΑΝΑ ΘΕΣΗ"
             textSize = 18f
             gravity = Gravity.CENTER
             setPadding(0,20,0,8)
@@ -790,7 +737,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         root.addView(TextView(this).apply {
-            text = "ΑΝΑ ΠΕΡΙΣΤΡΟΦΗ\nΑφορά: δική μας περιστροφή υποδοχής • ΤΡΕΧΟΝ ΣΕΤ"
+            text = "ΑΝΑ ΠΕΡΙΣΤΡΟΦΗ"
             textSize = 18f
             gravity = Gravity.CENTER
             setPadding(0,20,0,8)
