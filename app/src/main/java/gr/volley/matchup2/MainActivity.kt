@@ -46,11 +46,26 @@ class MainActivity : AppCompatActivity() {
     private val serverPreviousFrontCounts = mutableMapOf<String, MutableMap<String, Int>>()
     private lateinit var root: LinearLayout
     private lateinit var currentScroll: ScrollView
+    private var currentScreen = "HOME"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         showHome()
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        when (currentScreen) {
+            "PATTERN" -> showCourt()
+            "COURT", "ROSTER", "ROTATION" -> showHome()
+            else -> AlertDialog.Builder(this)
+                .setTitle("Έξοδος")
+                .setMessage("Θέλεις να κλείσεις την εφαρμογή;")
+                .setPositiveButton("ΝΑΙ") { _, _ -> finish() }
+                .setNegativeButton("ΟΧΙ", null)
+                .show()
+        }
     }
 
     private fun base(title: String) {
@@ -80,6 +95,7 @@ class MainActivity : AppCompatActivity() {
     private fun button(label:String, action:()->Unit)=Button(this).apply { text=label; setOnClickListener { action() } }
 
     private fun showHome() {
+        currentScreen = "HOME"
         base("VOLLEY MATCHUP 2")
         root.addView(button("ROSTER — ΔΙΚΗ ΜΑΣ ΟΜΑΔΑ"){ teamIndex=0; showRoster() })
         root.addView(button("ROSTER — ΑΝΤΙΠΑΛΗ ΟΜΑΔΑ"){ teamIndex=1; showRoster() })
@@ -88,6 +104,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showRoster() {
+        currentScreen = "ROSTER"
         base(if(teamIndex==0) "ΔΙΚΗ ΜΑΣ ΟΜΑΔΑ" else "ΑΝΤΙΠΑΛΗ ΟΜΑΔΑ")
 
         val teamName = EditText(this).apply {
@@ -209,6 +226,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showRotationSetup() {
+        currentScreen = "ROTATION"
         base("ΑΡΧΙΚΗ ΠΕΡΙΣΤΡΟΦΗ")
         addInitialRotationSelector(0)
         addTeamRotation(0)
@@ -275,6 +293,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showCourt() {
+        currentScreen = "COURT"
         base("ΓΗΠΕΔΟ")
         root.addView(TextView(this).apply {
             text = if (servingTeam == 0) "SERVICE: ${teams[0].name}" else "SERVICE: ${teams[1].name}"
@@ -582,6 +601,7 @@ class MainActivity : AppCompatActivity() {
         player.number.trim() + "|" + player.name.trim()
 
     private fun showServicePattern() {
+        currentScreen = "PATTERN"
         base("ΜΟΤΙΒΟ SERVICE")
         val total = receptionCounts.values.sum()
         if (total == 0) {
