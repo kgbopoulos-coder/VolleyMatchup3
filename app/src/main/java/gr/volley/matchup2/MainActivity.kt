@@ -229,7 +229,7 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     buildDefaultP1FromRoles(teamIndex)
                 }
-                selected[teamIndex] = p1Formation[teamIndex].clone()
+                p1Formation[teamIndex].copyInto(selected[teamIndex])
                 initialRotation[teamIndex] = 1
                 showRoster()
             }
@@ -279,7 +279,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun applyInitialRotations() {
         for (ti in 0..1) {
-            selected[ti] = p1Formation[ti].clone()
+            p1Formation[ti].copyInto(selected[ti])
             repeat(initialRotation[ti] - 1) {
                 rotateTeam(ti)
             }
@@ -463,7 +463,9 @@ class MainActivity : AppCompatActivity() {
                     val targetName = teams[0].roster.firstOrNull { it.role == topRole }?.name?.takeIf { it.isNotBlank() } ?: topRole
                     root.addView(TextView(this).apply {
                         text = "⚠ ΠΡΟΣΟΧΗ — ${server.name.ifBlank { server.number.ifBlank { "SERVER" } }}\n" +
-                               "Αφορά: συγκεκριμένη server — ${server.name.ifBlank { server.number.ifBlank { \"SERVER\" } }}\\n" +\n                               "Καταγραφές της server: $oldTotal\\n" +\n                               "Στόχος: $topPct% → $targetName • Ζώνη: $zonePct% $zone"
+                               "Αφορά: συγκεκριμένη server — ${server.name.ifBlank { server.number.ifBlank { "SERVER" } }}\n" +
+                               "Καταγραφές της server: $oldTotal\n" +
+                               "Στόχος: $topPct% → $targetName • Ζώνη: $zonePct% $zone"
                         gravity = Gravity.CENTER
                         textSize = 14f
                         setPadding(14,10,14,10)
@@ -702,7 +704,7 @@ class MainActivity : AppCompatActivity() {
         fun pct(n: Int) = ((n * 100.0) / total).toInt()
 
         root.addView(TextView(this).apply {
-            text = "ΣΥΝΟΛΟ SERVICE: $total\\nΑφορά: ΟΛΕΣ τις αντίπαλες server • ΤΡΕΧΟΝ ΣΕΤ"
+            text = "ΣΥΝΟΛΟ SERVICE: $total\nΑφορά: ΟΛΕΣ τις αντίπαλες server • ΤΡΕΧΟΝ ΣΕΤ"
             gravity = Gravity.CENTER
             textSize = 18f
             setPadding(0,0,0,16)
@@ -724,7 +726,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         root.addView(TextView(this).apply {
-            text = "ΣΤΟΧΟΣ ΑΝΑ ΘΕΣΗ\\nΑφορά: θέση όπου έγινε η υποδοχή • ΤΡΕΧΟΝ ΣΕΤ"
+            text = "ΣΤΟΧΟΣ ΑΝΑ ΘΕΣΗ\nΑφορά: θέση όπου έγινε η υποδοχή • ΤΡΕΧΟΝ ΣΕΤ"
             textSize = 18f
             gravity = Gravity.CENTER
             setPadding(0,20,0,8)
@@ -739,7 +741,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         root.addView(TextView(this).apply {
-            text = "ΑΝΑ ΠΕΡΙΣΤΡΟΦΗ\\nΑφορά: δική μας περιστροφή υποδοχής • ΤΡΕΧΟΝ ΣΕΤ"
+            text = "ΑΝΑ ΠΕΡΙΣΤΡΟΦΗ\nΑφορά: δική μας περιστροφή υποδοχής • ΤΡΕΧΟΝ ΣΕΤ"
             textSize = 18f
             gravity = Gravity.CENTER
             setPadding(0,20,0,8)
