@@ -25,6 +25,7 @@ class MainActivity : AppCompatActivity() {
     private val selected = Array(2) { IntArray(6) { -1 } }
     private var teamIndex = 0
     private var servingTeam = 0 // 0 = δική μας, 1 = αντίπαλη
+    private val initialRotation = intArrayOf(1, 1)
     private lateinit var root: LinearLayout
     private lateinit var currentScroll: ScrollView
 
@@ -191,9 +192,49 @@ class MainActivity : AppCompatActivity() {
 
     private fun showRotationSetup() {
         base("ΑΡΧΙΚΗ ΠΕΡΙΣΤΡΟΦΗ")
-        addTeamRotation(0); addTeamRotation(1)
-        root.addView(button("ΠΡΟΒΟΛΗ ΣΤΟ ΓΗΠΕΔΟ"){ showCourt() })
+        addInitialRotationSelector(0)
+        addTeamRotation(0)
+        addInitialRotationSelector(1)
+        addTeamRotation(1)
+        root.addView(button("ΠΡΟΒΟΛΗ ΣΤΟ ΓΗΠΕΔΟ"){
+            applyInitialRotations()
+            showCourt()
+        })
         root.addView(button("ΠΙΣΩ"){ showHome() })
+    }
+
+    private fun addInitialRotationSelector(ti: Int) {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 12, 0, 4)
+        }
+        row.addView(TextView(this).apply {
+            text = "Αρχική περιστροφή"
+            textSize = 16f
+            layoutParams = LinearLayout.LayoutParams(0, -2, 1.6f)
+        })
+        row.addView(Spinner(this).apply {
+            val values = arrayOf("P1", "P2", "P3", "P4", "P5", "P6")
+            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, values)
+            setSelection(initialRotation[ti] - 1)
+            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(a: AdapterView<*>?, v: View?, pos: Int, id: Long) {
+                    initialRotation[ti] = pos + 1
+                }
+                override fun onNothingSelected(a: AdapterView<*>?) {}
+            }
+            layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
+        })
+        root.addView(row)
+    }
+
+    private fun applyInitialRotations() {
+        for (ti in 0..1) {
+            repeat(initialRotation[ti] - 1) {
+                rotateTeam(ti)
+            }
+        }
     }
 
     private fun addTeamRotation(ti:Int) {
