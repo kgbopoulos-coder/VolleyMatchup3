@@ -28,6 +28,8 @@ class MainActivity : AppCompatActivity() {
     private val initialRotation = intArrayOf(1, 1)
     private val receptionCounts = mutableMapOf<String, Int>()
     private val receptionCountsByRotation = mutableMapOf<String, Int>()
+    private val receptionBackCounts = mutableMapOf<String, Int>()
+    private val receptionFrontCounts = mutableMapOf<String, Int>()
     private lateinit var root: LinearLayout
     private lateinit var currentScroll: ScrollView
 
@@ -373,7 +375,7 @@ class MainActivity : AppCompatActivity() {
                     textSize = 12f
                     isAllCaps = false
                     setOnClickListener {
-                        recordReception(player, role, rotation)
+                        recordReception(player, role, rotation, courtPos)
                     }
                 }, LinearLayout.LayoutParams(0,150,1f))
             }
@@ -381,23 +383,38 @@ class MainActivity : AppCompatActivity() {
         }
         root.addView(court)
 
-        val totals = arrayOf("ΑΚ1","ΑΚ2","Λ").joinToString("   ") { role ->
-            "$role: ${receptionCounts[role] ?: 0}"
-        }
         root.addView(TextView(this).apply {
-            text = "ΣΥΝΟΛΟ ΥΠΟΔΟΧΩΝ\n$totals"
+            text = buildString {
+                append("ΚΑΤΑΓΡΑΦΗ ΥΠΟΔΟΧΩΝ")
+                arrayOf("ΑΚ1","ΑΚ2","Λ").forEach { role ->
+                    val player = teams[0].roster.firstOrNull { it.role == role }
+                    val name = player?.name?.takeIf { it.isNotBlank() } ?: role
+                    val total = receptionCounts[role] ?: 0
+                    val back = receptionBackCounts[role] ?: 0
+                    val front = receptionFrontCounts[role] ?: 0
+                    append("\n$name: $total σύνολο — $back πίσω — $front μπροστά")
+                }
+            }
             gravity = Gravity.CENTER
             textSize = 15f
             setPadding(0,12,0,8)
         })
     }
 
-    private fun recordReception(player: Player?, role: String, rotation: Int) {
+    private fun recordReception(player: Player?, role: String, rotation: Int, courtPos: String) {
         receptionCounts[role] = (receptionCounts[role] ?: 0) + 1
         val key = "P$rotation|$role"
         receptionCountsByRotation[key] = (receptionCountsByRotation[key] ?: 0) + 1
+
+        if (courtPos in arrayOf("P1","P6","P5")) {
+            receptionBackCounts[role] = (receptionBackCounts[role] ?: 0) + 1
+        } else if (courtPos in arrayOf("P2","P3","P4")) {
+            receptionFrontCounts[role] = (receptionFrontCounts[role] ?: 0) + 1
+        }
+
         val who = player?.name?.takeIf { it.isNotBlank() } ?: role
-        Toast.makeText(this, "+1 υποδοχή: $who", Toast.LENGTH_SHORT).show()
+        val zone = if (courtPos in arrayOf("P1","P6","P5")) "πίσω" else "μπροστά"
+        Toast.makeText(this, "+1 υποδοχή: $who ($zone)", Toast.LENGTH_SHORT).show()
         showCourt()
     }
 
