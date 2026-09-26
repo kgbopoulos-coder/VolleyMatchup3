@@ -23,6 +23,7 @@ class MainActivity : AppCompatActivity() {
     private val teams = arrayOf(Team("ΔΙΚΗ ΜΑΣ ΟΜΑΔΑ"), Team("ΑΝΤΙΠΑΛΗ ΟΜΑΔΑ"))
     private val roles = arrayOf("Π", "ΑΚ1", "ΑΚ2", "Κ1", "Κ2", "Δ", "Λ")
     private val selected = Array(2) { IntArray(6) { -1 } }
+    private val p1Formation = Array(2) { IntArray(6) { -1 } }
     private var teamIndex = 0
     private var servingTeam = 0 // 0 = δική μας, 1 = αντίπαλη
     private val initialRotation = intArrayOf(1, 1)
@@ -139,6 +140,7 @@ class MainActivity : AppCompatActivity() {
             row.addView(no); row.addView(name); row.addView(role); root.addView(row)
         }
 
+        addP1FormationEditor(teamIndex)
         root.addView(button("ΑΠΟΘΗΚΕΥΣΗ ΟΜΑΔΑΣ"){ saveCurrentTeam() })
         root.addView(button("ΦΟΡΤΩΣΗ ΟΜΑΔΑΣ"){ loadTeamDialog() })
         root.addView(button("ΠΙΣΩ"){ showHome() })
@@ -186,6 +188,9 @@ class MainActivity : AppCompatActivity() {
                     arr.put(JSONObject().put("number",p.number).put("name",p.name).put("role",p.role))
                 }
                 obj.put("roster",arr)
+                obj.put("p1Formation", JSONArray().apply {
+                    p1Formation[teamIndex].forEach { put(it) }
+                })
                 all.put(saveName,obj)
                 prefs().edit().putString("saved_teams",all.toString()).apply()
                 Toast.makeText(this,"Η ομάδα αποθηκεύτηκε",Toast.LENGTH_SHORT).show()
@@ -218,7 +223,14 @@ class MainActivity : AppCompatActivity() {
                     team.roster[i].name=p?.optString("name","").orEmpty()
                     team.roster[i].role=p?.optString("role","").orEmpty()
                 }
-                selected[teamIndex].fill(-1)
+                val formation = obj.optJSONArray("p1Formation")
+                if (formation != null && formation.length() >= 6) {
+                    for (pos in 0..5) p1Formation[teamIndex][pos] = formation.optInt(pos, -1)
+                } else {
+                    buildDefaultP1FromRoles(teamIndex)
+                }
+                selected[teamIndex] = p1Formation[teamIndex].clone()
+                initialRotation[teamIndex] = 1
                 showRoster()
             }
             .setNegativeButton("ΑΚΥΡΟ",null)
@@ -229,9 +241,9 @@ class MainActivity : AppCompatActivity() {
         currentScreen = "ROTATION"
         base("ΑΡΧΙΚΗ ΠΕΡΙΣΤΡΟΦΗ")
         addInitialRotationSelector(0)
-        addTeamRotation(0)
+        addRotationPreview(0)
         addInitialRotationSelector(1)
-        addTeamRotation(1)
+        addRotationPreview(1)
         root.addView(button("ΠΡΟΒΟΛΗ ΣΤΟ ΓΗΠΕΔΟ"){
             applyInitialRotations()
             showCourt()
@@ -267,10 +279,70 @@ class MainActivity : AppCompatActivity() {
 
     private fun applyInitialRotations() {
         for (ti in 0..1) {
+            selected[ti] = p1Formation[ti].clone()
             repeat(initialRotation[ti] - 1) {
                 rotateTeam(ti)
             }
         }
+    }
+
+    private fun addP1FormationEditor(ti: Int) {
+        root.addView(TextView(this).apply {
+            text = "ΒΑΣΙΚΗ P1 — ΑΠΟΘΗΚΕΥΕΤΑΙ ΜΕ ΤΗΝ ΟΜΑΔΑ"
+            textSize = 17f
+            gravity = Gravity.CENTER
+            setPadding(0,24,0,8)
+        })
+        val labels = teams[ti].roster.mapIndexed { i,p ->
+            if (p.name.isBlank()) "${i+1}. —" else "${p.number} ${p.name} (${p.role})"
+        }
+        for (pos in 0..5) {
+            val row = LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER_VERTICAL }
+            row.addView(TextView(this).apply {
+                text="P${pos+1}"; textSize=16f; layoutParams=LinearLayout.LayoutParams(0,-2,.5f)
+            })
+            row.addView(Spinner(this).apply {
+                adapter=ArrayAdapter(this@MainActivity,android.R.layout.simple_spinner_dropdown_item,labels)
+                val saved=p1Formation[ti][pos]
+                if(saved in labels.indices) setSelection(saved)
+                onItemSelectedListener=object:AdapterView.OnItemSelectedListener{
+                    override fun onItemSelected(a:AdapterView<*>?,v:View?,i:Int,id:Long){ p1Formation[ti][pos]=i }
+                    override fun onNothingSelected(a:AdapterView<*>?){}
+                }
+                layoutParams=LinearLayout.LayoutParams(0,-2,3f)
+            })
+            root.addView(row)
+        }
+    }
+
+    private fun buildDefaultP1FromRoles(ti: Int) {
+        val order = arrayOf("Π","ΑΚ1","Κ1","Δ","ΑΚ2","Κ2")
+        order.forEachIndexed { pos, role ->
+            p1Formation[ti][pos] = teams[ti].roster.indexOfFirst { it.role == role }
+        }
+    }
+
+    private fun addRotationPreview(ti: Int) {
+        root.addView(TextView(this).apply {
+            val base = p1Formation[ti].clone()
+            repeat(initialRotation[ti]-1) {
+                val old=base.clone()
+                base[5]=old[0]; base[4]=old[5]; base[3]=old[4]
+                base[2]=old[3]; base[1]=old[2]; base[0]=old[1]
+            }
+            text = buildString {
+                append(teams[ti].name)
+                append(" — από αποθηκευμένη P1")
+                for (pos in 0..5) {
+                    val ix=base[pos]
+                    val p=if(ix in 0..13) teams[ti].roster[ix] else null
+                    append("\nP${pos+1}: ")
+                    append(p?.name?.takeIf { it.isNotBlank() } ?: "—")
+                }
+            }
+            textSize=14f
+            setPadding(0,4,0,14)
+        })
     }
 
     private fun addTeamRotation(ti:Int) {
