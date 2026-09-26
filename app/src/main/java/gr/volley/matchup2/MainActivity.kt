@@ -332,7 +332,7 @@ class MainActivity : AppCompatActivity() {
                             val pct = ((n * 100.0) / total).toInt()
                             append("\n${index + 1}. $name — $n ($pct%) • Πίσω $back • Μπροστά $front")
                         }
-                        append("\nΣτατιστικά: όλα τα αντίπαλα service του τρέχοντος σετ")
+                        append("\nΑφορά: ΟΛΕΣ τις αντίπαλες server • ΤΡΕΧΟΝ ΣΕΤ")\n                        append("\n% = ποσοστό υποδοχών ανά παίκτρια • Πίσω/Μπροστά = ζώνη υποδοχής")
                         append("\nΠατήστε για πλήρη ανάλυση")
                     }
                 }
@@ -354,7 +354,7 @@ class MainActivity : AppCompatActivity() {
                 val completedTotal = completedSetCounts.values.sum()
                 root.addView(TextView(this).apply {
                     text = buildString {
-                        append("ΣΥΝΟΛΟ ΠΡΟΗΓΟΥΜΕΝΩΝ ΣΕΤ — $completedTotal ΥΠΟΔΟΧΕΣ")
+                        append("ΣΥΝΟΛΟ ΠΡΟΗΓΟΥΜΕΝΩΝ ΣΕΤ — $completedTotal ΥΠΟΔΟΧΕΣ")\n                        append("\nΑφορά: ΟΛΕΣ τις αντίπαλες server • ΜΟΝΟ ολοκληρωμένα προηγούμενα σετ")
                         arrayOf("ΑΚ1","ΑΚ2","Λ").sortedByDescending { completedSetCounts[it] ?: 0 }
                             .forEachIndexed { index, role ->
                                 val n = completedSetCounts[role] ?: 0
@@ -391,7 +391,7 @@ class MainActivity : AppCompatActivity() {
                     val targetName = teams[0].roster.firstOrNull { it.role == topRole }?.name?.takeIf { it.isNotBlank() } ?: topRole
                     root.addView(TextView(this).apply {
                         text = "⚠ ΠΡΟΣΟΧΗ — ${server.name.ifBlank { server.number.ifBlank { "SERVER" } }}\n" +
-                               "Προηγούμενα σετ: $topPct% → $targetName • $zonePct% $zone"
+                               "Αφορά: συγκεκριμένη server — ${server.name.ifBlank { server.number.ifBlank { \"SERVER\" } }}\\n" +\n                               "Καταγραφές της server: $oldTotal\\n" +\n                               "Στόχος: $topPct% → $targetName • Ζώνη: $zonePct% $zone"
                         gravity = Gravity.CENTER
                         textSize = 14f
                         setPadding(14,10,14,10)
@@ -630,7 +630,7 @@ class MainActivity : AppCompatActivity() {
         fun pct(n: Int) = ((n * 100.0) / total).toInt()
 
         root.addView(TextView(this).apply {
-            text = "ΣΥΝΟΛΟ SERVICE: $total"
+            text = "ΣΥΝΟΛΟ SERVICE: $total\\nΑφορά: ΟΛΕΣ τις αντίπαλες server • ΤΡΕΧΟΝ ΣΕΤ"
             gravity = Gravity.CENTER
             textSize = 18f
             setPadding(0,0,0,16)
@@ -652,7 +652,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         root.addView(TextView(this).apply {
-            text = "ΣΤΟΧΟΣ ΑΝΑ ΘΕΣΗ"
+            text = "ΣΤΟΧΟΣ ΑΝΑ ΘΕΣΗ\\nΑφορά: θέση όπου έγινε η υποδοχή • ΤΡΕΧΟΝ ΣΕΤ"
             textSize = 18f
             gravity = Gravity.CENTER
             setPadding(0,20,0,8)
@@ -667,7 +667,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         root.addView(TextView(this).apply {
-            text = "ΑΝΑ ΠΕΡΙΣΤΡΟΦΗ"
+            text = "ΑΝΑ ΠΕΡΙΣΤΡΟΦΗ\\nΑφορά: δική μας περιστροφή υποδοχής • ΤΡΕΧΟΝ ΣΕΤ"
             textSize = 18f
             gravity = Gravity.CENTER
             setPadding(0,20,0,8)
