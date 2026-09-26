@@ -30,6 +30,7 @@ class MainActivity : AppCompatActivity() {
     private val receptionCountsByRotation = mutableMapOf<String, Int>()
     private val receptionBackCounts = mutableMapOf<String, Int>()
     private val receptionFrontCounts = mutableMapOf<String, Int>()
+    private val receptionPositionCounts = mutableMapOf<String, Int>()
     private lateinit var root: LinearLayout
     private lateinit var currentScroll: ScrollView
 
@@ -276,6 +277,7 @@ class MainActivity : AppCompatActivity() {
 
         root.addView(button("ΠΟΝΤΟΣ ΔΙΚΟΣ ΜΑΣ") { pointWonBy(0) })
         root.addView(button("ΠΟΝΤΟΣ ΑΝΤΙΠΑΛΟΥ") { pointWonBy(1) })
+        root.addView(button("ΜΟΤΙΒΟ SERVICE") { showServicePattern() })
         root.addView(button("ΠΙΣΩ"){showHome()})
     }
 
@@ -406,6 +408,7 @@ class MainActivity : AppCompatActivity() {
         val key = "P$rotation|$role"
         receptionCountsByRotation[key] = (receptionCountsByRotation[key] ?: 0) + 1
 
+        receptionPositionCounts[courtPos] = (receptionPositionCounts[courtPos] ?: 0) + 1
         if (courtPos in arrayOf("P1","P6","P5")) {
             receptionBackCounts[role] = (receptionBackCounts[role] ?: 0) + 1
         } else if (courtPos in arrayOf("P2","P3","P4")) {
@@ -416,6 +419,82 @@ class MainActivity : AppCompatActivity() {
         val zone = if (courtPos in arrayOf("P1","P6","P5")) "πίσω" else "μπροστά"
         Toast.makeText(this, "+1 υποδοχή: $who ($zone)", Toast.LENGTH_SHORT).show()
         showCourt()
+    }
+
+    private fun showServicePattern() {
+        base("ΜΟΤΙΒΟ SERVICE")
+        val total = receptionCounts.values.sum()
+        if (total == 0) {
+            root.addView(TextView(this).apply {
+                text = "Δεν υπάρχουν ακόμη καταγεγραμμένες υποδοχές."
+                gravity = Gravity.CENTER
+                textSize = 16f
+                setPadding(0,20,0,20)
+            })
+            root.addView(button("ΠΙΣΩ"){ showCourt() })
+            return
+        }
+
+        fun pct(n: Int) = ((n * 100.0) / total).toInt()
+
+        root.addView(TextView(this).apply {
+            text = "ΣΥΝΟΛΟ SERVICE: $total"
+            gravity = Gravity.CENTER
+            textSize = 18f
+            setPadding(0,0,0,16)
+        })
+
+        arrayOf("ΑΚ1","ΑΚ2","Λ").forEach { role ->
+            val player = teams[0].roster.firstOrNull { it.role == role }
+            val name = player?.name?.takeIf { it.isNotBlank() } ?: role
+            val n = receptionCounts[role] ?: 0
+            val back = receptionBackCounts[role] ?: 0
+            val front = receptionFrontCounts[role] ?: 0
+            root.addView(TextView(this).apply {
+                text = "$name: $n (${pct(n)}%) — πίσω $back — μπροστά $front"
+                textSize = 16f
+                setPadding(0,8,0,8)
+            })
+        }
+
+        root.addView(TextView(this).apply {
+            text = "ΣΤΟΧΟΣ ΑΝΑ ΘΕΣΗ"
+            textSize = 18f
+            gravity = Gravity.CENTER
+            setPadding(0,20,0,8)
+        })
+        arrayOf("P1","P6","P5","P2","P3","P4").forEach { pos ->
+            val n = receptionPositionCounts[pos] ?: 0
+            root.addView(TextView(this).apply {
+                text = "$pos: $n (${pct(n)}%)"
+                textSize = 16f
+                setPadding(0,5,0,5)
+            })
+        }
+
+        root.addView(TextView(this).apply {
+            text = "ΑΝΑ ΠΕΡΙΣΤΡΟΦΗ"
+            textSize = 18f
+            gravity = Gravity.CENTER
+            setPadding(0,20,0,8)
+        })
+        for (rotation in 1..6) {
+            val counts = arrayOf("ΑΚ1","ΑΚ2","Λ").associateWith { role ->
+                receptionCountsByRotation["P$rotation|$role"] ?: 0
+            }
+            val rotTotal = counts.values.sum()
+            val detail = if (rotTotal == 0) "χωρίς καταγραφή" else
+                counts.entries.joinToString(" — ") { (role,n) ->
+                    "$role $n (${((n * 100.0) / rotTotal).toInt()}%)"
+                }
+            root.addView(TextView(this).apply {
+                text = "P$rotation: $detail"
+                textSize = 15f
+                setPadding(0,5,0,5)
+            })
+        }
+
+        root.addView(button("ΠΙΣΩ"){ showCourt() })
     }
 
     private fun addCourtHalf(ti:Int,title:String,opponent:Boolean){
