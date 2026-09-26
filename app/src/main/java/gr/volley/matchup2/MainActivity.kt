@@ -505,7 +505,38 @@ class MainActivity : AppCompatActivity() {
         root.addView(button("ΠΟΝΤΟΣ ΑΝΤΙΠΑΛΟΥ") { pointWonBy(1) })
         root.addView(button("ΜΟΤΙΒΟ SERVICE") { showServicePattern() })
         root.addView(button("ΤΕΛΟΣ ΣΕΤ") { confirmEndSet() })
+        root.addView(button("ΚΑΘΑΡΙΣΜΟΣ") { confirmClearMatch() })
         root.addView(button("ΠΙΣΩ"){showHome()})
+    }
+
+    private fun confirmClearMatch() {
+        AlertDialog.Builder(this)
+            .setTitle("Καθαρισμός")
+            .setMessage("Να διαγραφούν όλα τα στατιστικά του αγώνα; Τα roster και η αποθηκευμένη P1 δεν θα διαγραφούν.")
+            .setPositiveButton("ΝΑΙ") { _, _ ->
+                receptionCounts.clear()
+                receptionCountsByRotation.clear()
+                receptionBackCounts.clear()
+                receptionFrontCounts.clear()
+                receptionPositionCounts.clear()
+                previousSetCounts.clear()
+                previousSetBackCounts.clear()
+                previousSetFrontCounts.clear()
+                matchReceptionCounts.clear()
+                matchReceptionBackCounts.clear()
+                matchReceptionFrontCounts.clear()
+                completedSetCounts.clear()
+                completedSetBackCounts.clear()
+                completedSetFrontCounts.clear()
+                serverPreviousCounts.clear()
+                serverPreviousBackCounts.clear()
+                serverPreviousFrontCounts.clear()
+                currentSet = 1
+                Toast.makeText(this, "Τα στατιστικά καθαρίστηκαν", Toast.LENGTH_SHORT).show()
+                showCourt()
+            }
+            .setNegativeButton("ΑΚΥΡΟ", null)
+            .show()
     }
 
     private fun confirmEndSet() {
