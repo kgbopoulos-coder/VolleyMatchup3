@@ -257,8 +257,10 @@ class MainActivity : AppCompatActivity() {
             setPadding(8,8,8,8)
             background=GradientDrawable().apply { setColor(Color.rgb(238,177,104)); setStroke(3,Color.WHITE) }
         }
-        val rows=if(opponent) arrayOf(intArrayOf(4,3,2),intArrayOf(5,0,1))
-                 else arrayOf(intArrayOf(3,2,1),intArrayOf(4,5,0))
+        // Visual layout requested:
+        // top, left -> right:    P1 P6 P5
+        // bottom, left -> right: P2 P3 P4  (so bottom right -> left is P4 P3 P2)
+        val rows = arrayOf(intArrayOf(0,5,4), intArrayOf(1,2,3))
         rows.forEach { positions ->
             val row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER }
             positions.forEach { p -> row.addView(playerBox(ti,p),LinearLayout.LayoutParams(0,150,1f)) }
