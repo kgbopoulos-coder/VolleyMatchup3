@@ -7,6 +7,7 @@ import android.text.Editable
 import android.text.TextWatcher
 import android.view.Gravity
 import android.view.View
+import android.view.WindowManager
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -23,11 +24,16 @@ class MainActivity : AppCompatActivity() {
     private var teamIndex = 0
     private lateinit var root: LinearLayout
 
-    override fun onCreate(savedInstanceState: Bundle?) { super.onCreate(savedInstanceState); showHome() }
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        showHome()
+    }
 
     private fun base(title: String) {
         val scroll = ScrollView(this).apply {
             isFillViewport = true
+            clipToPadding = false
         }
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -72,6 +78,12 @@ class MainActivity : AppCompatActivity() {
             }
             no.addTextChangedListener(simpleWatcher { p.number = it })
             name.addTextChangedListener(simpleWatcher { p.name = it })
+            no.setOnFocusChangeListener { v, hasFocus ->
+                if (hasFocus) v.postDelayed({ scrollFieldIntoView(v) }, 250)
+            }
+            name.setOnFocusChangeListener { v, hasFocus ->
+                if (hasFocus) v.postDelayed({ scrollFieldIntoView(v) }, 250)
+            }
             role.onItemSelectedListener=object:AdapterView.OnItemSelectedListener{
                 override fun onItemSelected(a:AdapterView<*>?,v:View?,pos:Int,id:Long){p.role=roles[pos]}
                 override fun onNothingSelected(a:AdapterView<*>?){}
@@ -82,6 +94,19 @@ class MainActivity : AppCompatActivity() {
         root.addView(button("ΑΠΟΘΗΚΕΥΣΗ ΟΜΑΔΑΣ"){ saveCurrentTeam() })
         root.addView(button("ΦΟΡΤΩΣΗ ΟΜΑΔΑΣ"){ loadTeamDialog() })
         root.addView(button("ΠΙΣΩ"){ showHome() })
+    }
+
+    private fun scrollFieldIntoView(view: View) {
+        var parent = view.parent
+        while (parent != null && parent !is ScrollView) parent = parent.parent
+        val scroll = parent as? ScrollView ?: return
+        scroll.post {
+            val rect = android.graphics.Rect()
+            view.getDrawingRect(rect)
+            scroll.offsetDescendantRectToMyCoords(view, rect)
+            val extra = 80
+            scroll.smoothScrollTo(0, (rect.bottom - scroll.height + extra).coerceAtLeast(0))
+        }
     }
 
     private fun simpleWatcher(onChange:(String)->Unit)=object:TextWatcher{
