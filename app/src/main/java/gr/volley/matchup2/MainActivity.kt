@@ -404,7 +404,8 @@ class MainActivity : AppCompatActivity() {
                             val pct = ((n * 100.0) / total).toInt()
                             append("\n${index + 1}. $name — $n ($pct%) • Πίσω $back • Μπροστά $front")
                         }
-                        append("\nΑφορά: ΟΛΕΣ τις αντίπαλες server • ΤΡΕΧΟΝ ΣΕΤ")\n                        append("\n% = ποσοστό υποδοχών ανά παίκτρια • Πίσω/Μπροστά = ζώνη υποδοχής")
+                        append("\nΑφορά: ΟΛΕΣ τις αντίπαλες server • ΤΡΕΧΟΝ ΣΕΤ")
+                        append("\n% = ποσοστό υποδοχών ανά παίκτρια • Πίσω/Μπροστά = ζώνη υποδοχής")
                         append("\nΠατήστε για πλήρη ανάλυση")
                     }
                 }
@@ -426,7 +427,8 @@ class MainActivity : AppCompatActivity() {
                 val completedTotal = completedSetCounts.values.sum()
                 root.addView(TextView(this).apply {
                     text = buildString {
-                        append("ΣΥΝΟΛΟ ΠΡΟΗΓΟΥΜΕΝΩΝ ΣΕΤ — $completedTotal ΥΠΟΔΟΧΕΣ")\n                        append("\nΑφορά: ΟΛΕΣ τις αντίπαλες server • ΜΟΝΟ ολοκληρωμένα προηγούμενα σετ")
+                        append("ΣΥΝΟΛΟ ΠΡΟΗΓΟΥΜΕΝΩΝ ΣΕΤ — $completedTotal ΥΠΟΔΟΧΕΣ")
+                        append("\nΑφορά: ΟΛΕΣ τις αντίπαλες server • ΜΟΝΟ ολοκληρωμένα προηγούμενα σετ")
                         arrayOf("ΑΚ1","ΑΚ2","Λ").sortedByDescending { completedSetCounts[it] ?: 0 }
                             .forEachIndexed { index, role ->
                                 val n = completedSetCounts[role] ?: 0
