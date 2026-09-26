@@ -8,6 +8,8 @@ import android.text.TextWatcher
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -23,6 +25,7 @@ class MainActivity : AppCompatActivity() {
     private val selected = Array(2) { IntArray(6) { -1 } }
     private var teamIndex = 0
     private lateinit var root: LinearLayout
+    private lateinit var currentScroll: ScrollView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,6 +38,14 @@ class MainActivity : AppCompatActivity() {
             isFillViewport = true
             clipToPadding = false
         }
+        currentScroll = scroll
+        ViewCompat.setOnApplyWindowInsetsListener(scroll) { v, insets ->
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(0, 0, 0, maxOf(ime.bottom, bars.bottom))
+            insets
+        }
+        ViewCompat.requestApplyInsets(scroll)
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(28,36,28,120)
@@ -97,16 +108,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun scrollFieldIntoView(view: View) {
-        var parent = view.parent
-        while (parent != null && parent !is ScrollView) parent = parent.parent
-        val scroll = parent as? ScrollView ?: return
-        scroll.post {
+        currentScroll.postDelayed({
             val rect = android.graphics.Rect()
             view.getDrawingRect(rect)
-            scroll.offsetDescendantRectToMyCoords(view, rect)
-            val extra = 80
-            scroll.smoothScrollTo(0, (rect.bottom - scroll.height + extra).coerceAtLeast(0))
-        }
+            currentScroll.offsetDescendantRectToMyCoords(view, rect)
+            currentScroll.smoothScrollBy(0, rect.bottom - currentScroll.height + 140)
+        }, 350)
     }
 
     private fun simpleWatcher(onChange:(String)->Unit)=object:TextWatcher{
