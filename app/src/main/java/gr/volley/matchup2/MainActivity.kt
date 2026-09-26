@@ -38,6 +38,12 @@ class MainActivity : AppCompatActivity() {
     private val matchReceptionCounts = mutableMapOf<String, Int>()
     private val matchReceptionBackCounts = mutableMapOf<String, Int>()
     private val matchReceptionFrontCounts = mutableMapOf<String, Int>()
+    private val completedSetCounts = mutableMapOf<String, Int>()
+    private val completedSetBackCounts = mutableMapOf<String, Int>()
+    private val completedSetFrontCounts = mutableMapOf<String, Int>()
+    private val serverPreviousCounts = mutableMapOf<String, MutableMap<String, Int>>()
+    private val serverPreviousBackCounts = mutableMapOf<String, MutableMap<String, Int>>()
+    private val serverPreviousFrontCounts = mutableMapOf<String, MutableMap<String, Int>>()
     private lateinit var root: LinearLayout
     private lateinit var currentScroll: ScrollView
 
@@ -313,20 +319,18 @@ class MainActivity : AppCompatActivity() {
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply { setMargins(0,0,0,12) })
 
-            if (matchReceptionCounts.values.sum() > 0) {
-                val matchTotal = matchReceptionCounts.values.sum()
+            if (completedSetCounts.values.sum() > 0) {
+                val completedTotal = completedSetCounts.values.sum()
                 root.addView(TextView(this).apply {
                     text = buildString {
-                        append("ΣΥΝΟΛΟ ΑΓΩΝΑ — $matchTotal ΥΠΟΔΟΧΕΣ")
-                        arrayOf("ΑΚ1","ΑΚ2","Λ")
-                            .sortedByDescending { matchReceptionCounts[it] ?: 0 }
+                        append("ΣΥΝΟΛΟ ΠΡΟΗΓΟΥΜΕΝΩΝ ΣΕΤ — $completedTotal ΥΠΟΔΟΧΕΣ")
+                        arrayOf("ΑΚ1","ΑΚ2","Λ").sortedByDescending { completedSetCounts[it] ?: 0 }
                             .forEachIndexed { index, role ->
-                                val n = matchReceptionCounts[role] ?: 0
-                                val player = teams[0].roster.firstOrNull { it.role == role }
-                                val name = player?.name?.takeIf { it.isNotBlank() } ?: role
-                                val back = matchReceptionBackCounts[role] ?: 0
-                                val front = matchReceptionFrontCounts[role] ?: 0
-                                val pct = ((n * 100.0) / matchTotal).toInt()
+                                val n = completedSetCounts[role] ?: 0
+                                val name = teams[0].roster.firstOrNull { it.role == role }?.name?.takeIf { it.isNotBlank() } ?: role
+                                val back = completedSetBackCounts[role] ?: 0
+                                val front = completedSetFrontCounts[role] ?: 0
+                                val pct = ((n * 100.0) / completedTotal).toInt()
                                 append("\n${index + 1}. $name — $n ($pct%) • Πίσω $back • Μπροστά $front")
                             }
                     }
@@ -334,45 +338,37 @@ class MainActivity : AppCompatActivity() {
                     textSize = 13f
                     setPadding(14,10,14,10)
                     background = GradientDrawable().apply {
-                        setColor(Color.argb(18,32,32,95))
-                        setStroke(1, Color.rgb(32,32,95))
-                        cornerRadius = 14f
+                        setColor(Color.argb(18,32,32,95)); setStroke(1,Color.rgb(32,32,95)); cornerRadius=14f
                     }
-                }, LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                ).apply { setMargins(0,0,0,12) })
+                }, LinearLayout.LayoutParams(-1,-2).apply { setMargins(0,0,0,12) })
             }
 
-            if (previousSetCounts.values.sum() > 0) {
-                val previousTotal = previousSetCounts.values.sum()
-                root.addView(TextView(this).apply {
-                    text = buildString {
-                        append("ΠΡΟΗΓΟΥΜΕΝΟ ΣΕΤ")
-                        arrayOf("ΑΚ1","ΑΚ2","Λ")
-                            .sortedByDescending { previousSetCounts[it] ?: 0 }
-                            .forEachIndexed { index, role ->
-                                val n = previousSetCounts[role] ?: 0
-                                val player = teams[0].roster.firstOrNull { it.role == role }
-                                val name = player?.name?.takeIf { it.isNotBlank() } ?: role
-                                val back = previousSetBackCounts[role] ?: 0
-                                val front = previousSetFrontCounts[role] ?: 0
-                                val pct = ((n * 100.0) / previousTotal).toInt()
-                                append("\n${index + 1}. $name — $n ($pct%) • Πίσω $back • Μπροστά $front")
-                            }
-                    }
-                    gravity = Gravity.CENTER
-                    textSize = 13f
-                    setPadding(14,10,14,10)
-                    background = GradientDrawable().apply {
-                        setColor(Color.argb(12,32,32,95))
-                        setStroke(1, Color.GRAY)
-                        cornerRadius = 14f
-                    }
-                }, LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                ).apply { setMargins(0,0,0,12) })
+            val server = currentOpponentServer()
+            if (server != null) {
+                val serverKey = serverKey(server)
+                val old = serverPreviousCounts[serverKey]
+                val oldTotal = old?.values?.sum() ?: 0
+                if (oldTotal >= 3) {
+                    val topRole = arrayOf("ΑΚ1","ΑΚ2","Λ").maxByOrNull { old?.get(it) ?: 0 } ?: "ΑΚ1"
+                    val topN = old?.get(topRole) ?: 0
+                    val topPct = ((topN * 100.0) / oldTotal).toInt()
+                    val oldBack = serverPreviousBackCounts[serverKey]?.values?.sum() ?: 0
+                    val oldFront = serverPreviousFrontCounts[serverKey]?.values?.sum() ?: 0
+                    val zone = if (oldBack >= oldFront) "πίσω" else "μπροστά"
+                    val zoneN = maxOf(oldBack, oldFront)
+                    val zonePct = ((zoneN * 100.0) / oldTotal).toInt()
+                    val targetName = teams[0].roster.firstOrNull { it.role == topRole }?.name?.takeIf { it.isNotBlank() } ?: topRole
+                    root.addView(TextView(this).apply {
+                        text = "⚠ ΠΡΟΣΟΧΗ — ${server.name.ifBlank { server.number.ifBlank { "SERVER" } }}\n" +
+                               "Προηγούμενα σετ: $topPct% → $targetName • $zonePct% $zone"
+                        gravity = Gravity.CENTER
+                        textSize = 14f
+                        setPadding(14,10,14,10)
+                        background = GradientDrawable().apply {
+                            setColor(Color.argb(30,255,193,7)); setStroke(2,Color.rgb(180,120,0)); cornerRadius=14f
+                        }
+                    }, LinearLayout.LayoutParams(-1,-2).apply { setMargins(0,0,0,12) })
+                }
             }
         }
 
@@ -405,6 +401,10 @@ class MainActivity : AppCompatActivity() {
         previousSetBackCounts.putAll(receptionBackCounts)
         previousSetFrontCounts.clear()
         previousSetFrontCounts.putAll(receptionFrontCounts)
+
+        receptionCounts.forEach { (role,n) -> completedSetCounts[role] = (completedSetCounts[role] ?: 0) + n }
+        receptionBackCounts.forEach { (role,n) -> completedSetBackCounts[role] = (completedSetBackCounts[role] ?: 0) + n }
+        receptionFrontCounts.forEach { (role,n) -> completedSetFrontCounts[role] = (completedSetFrontCounts[role] ?: 0) + n }
 
         receptionCounts.clear()
         receptionCountsByRotation.clear()
@@ -541,6 +541,12 @@ class MainActivity : AppCompatActivity() {
     private fun recordReception(player: Player?, role: String, rotation: Int, courtPos: String) {
         receptionCounts[role] = (receptionCounts[role] ?: 0) + 1
         matchReceptionCounts[role] = (matchReceptionCounts[role] ?: 0) + 1
+        val server = currentOpponentServer()
+        val serverKey = server?.let { serverKey(it) }
+        if (serverKey != null) {
+            val map = serverPreviousCounts.getOrPut(serverKey) { mutableMapOf() }
+            map[role] = (map[role] ?: 0) + 1
+        }
         val key = "P$rotation|$role"
         receptionCountsByRotation[key] = (receptionCountsByRotation[key] ?: 0) + 1
 
@@ -548,9 +554,17 @@ class MainActivity : AppCompatActivity() {
         if (courtPos in arrayOf("P1","P6","P5")) {
             receptionBackCounts[role] = (receptionBackCounts[role] ?: 0) + 1
             matchReceptionBackCounts[role] = (matchReceptionBackCounts[role] ?: 0) + 1
+            if (serverKey != null) {
+                val map = serverPreviousBackCounts.getOrPut(serverKey) { mutableMapOf() }
+                map[role] = (map[role] ?: 0) + 1
+            }
         } else if (courtPos in arrayOf("P2","P3","P4")) {
             receptionFrontCounts[role] = (receptionFrontCounts[role] ?: 0) + 1
             matchReceptionFrontCounts[role] = (matchReceptionFrontCounts[role] ?: 0) + 1
+            if (serverKey != null) {
+                val map = serverPreviousFrontCounts.getOrPut(serverKey) { mutableMapOf() }
+                map[role] = (map[role] ?: 0) + 1
+            }
         }
 
         val who = player?.name?.takeIf { it.isNotBlank() } ?: role
@@ -558,6 +572,14 @@ class MainActivity : AppCompatActivity() {
         Toast.makeText(this, "+1 υποδοχή: $who ($zone)", Toast.LENGTH_SHORT).show()
         showCourt()
     }
+
+    private fun currentOpponentServer(): Player? {
+        val ix = selected[1][0] // P1 is the serving position
+        return if (ix in 0..13) teams[1].roster[ix] else null
+    }
+
+    private fun serverKey(player: Player): String =
+        player.number.trim() + "|" + player.name.trim()
 
     private fun showServicePattern() {
         base("ΜΟΤΙΒΟ SERVICE")
