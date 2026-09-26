@@ -276,14 +276,21 @@ class MainActivity : AppCompatActivity() {
                 text = if (total == 0) {
                     "ΜΟΤΙΒΟ SERVICE\nΔεν υπάρχουν ακόμη καταγραφές"
                 } else {
-                    val target = arrayOf("ΑΚ1","ΑΚ2","Λ").maxByOrNull { receptionCounts[it] ?: 0 } ?: "ΑΚ1"
-                    val targetCount = receptionCounts[target] ?: 0
-                    val player = teams[0].roster.firstOrNull { it.role == target }
-                    val name = player?.name?.takeIf { it.isNotBlank() } ?: target
-                    val back = receptionBackCounts[target] ?: 0
-                    val front = receptionFrontCounts[target] ?: 0
-                    val pct = ((targetCount * 100.0) / total).toInt()
-                    "ΜΟΤΙΒΟ SERVICE\nΚύριος στόχος: $name — $targetCount ($pct%)\nΠίσω: $back   •   Μπροστά: $front\nΠατήστε για πλήρη ανάλυση"
+                    val ranked = arrayOf("ΑΚ1","ΑΚ2","Λ")
+                        .sortedByDescending { receptionCounts[it] ?: 0 }
+                    buildString {
+                        append("ΜΟΤΙΒΟ SERVICE")
+                        ranked.forEachIndexed { index, role ->
+                            val n = receptionCounts[role] ?: 0
+                            val player = teams[0].roster.firstOrNull { it.role == role }
+                            val name = player?.name?.takeIf { it.isNotBlank() } ?: role
+                            val back = receptionBackCounts[role] ?: 0
+                            val front = receptionFrontCounts[role] ?: 0
+                            val pct = ((n * 100.0) / total).toInt()
+                            append("\n${index + 1}. $name — $n ($pct%) • Πίσω $back • Μπροστά $front")
+                        }
+                        append("\nΠατήστε για πλήρη ανάλυση")
+                    }
                 }
                 gravity = Gravity.CENTER
                 textSize = 14f
@@ -475,7 +482,9 @@ class MainActivity : AppCompatActivity() {
             setPadding(0,0,0,16)
         })
 
-        arrayOf("ΑΚ1","ΑΚ2","Λ").forEach { role ->
+        arrayOf("ΑΚ1","ΑΚ2","Λ")
+            .sortedByDescending { receptionCounts[it] ?: 0 }
+            .forEach { role ->
             val player = teams[0].roster.firstOrNull { it.role == role }
             val name = player?.name?.takeIf { it.isNotBlank() } ?: role
             val n = receptionCounts[role] ?: 0
