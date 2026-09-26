@@ -313,12 +313,24 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        val backMiddle = (0..5)
+            .mapNotNull { pos ->
+                val ix = selected[0][pos]
+                if (ix in 0..13) teams[0].roster[ix] to pos else null
+            }
+            .firstOrNull { (player, pos) ->
+                player.role in arrayOf("Κ1", "Κ2") && pos in arrayOf(0, 4, 5)
+            }?.first
+
+        val libero = teams[0].roster.firstOrNull { it.role == "Λ" }
         val receiverRoles = arrayOf("ΑΚ1", "Λ", "ΑΚ2")
         receiverRoles.forEach { role ->
-            val player = teams[0].roster.firstOrNull { it.role == role }
+            val player = if (role == "Λ" && backMiddle != null) libero
+                         else teams[0].roster.firstOrNull { it.role == role }
             court.addView(TextView(this).apply {
                 text = if (player != null && player.name.isNotBlank()) {
-                    "${player.name}\n[$role]"
+                    if (role == "Λ" && backMiddle != null) "${player.name}\n[Λ αντί ${backMiddle.role}]"
+                    else "${player.name}\n[$role]"
                 } else {
                     role
                 }
