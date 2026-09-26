@@ -4,6 +4,9 @@ import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.text.Editable
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
 import android.text.TextWatcher
 import android.view.Gravity
 import android.view.View
@@ -397,21 +400,18 @@ class MainActivity : AppCompatActivity() {
             val rotationCounts = if (sKey != null) serverSetCounts[sKey] else null
             val rotationTotal = rotationCounts?.values?.sum() ?: 0
             root.addView(patternPanel("1. ΜΟΤΙΒΟ SERVER — ΤΡΕΧΟΥΣΑ ΠΕΡΙΣΤΡΟΦΗ",
-                if (rotationTotal == 0) "$serverLabel: χωρίς καταγραφή"
-                else patternLines(rotationCounts!!, rotationTotal)))
+                rotationCounts ?: emptyMap(), rotationTotal, if (rotationTotal == 0) "$serverLabel: χωρίς καταγραφή" else serverLabel))
 
             // 2. Current server across all sets played so far.
             val allServerCounts = if (sKey != null) serverPreviousCounts[sKey] else null
             val allServerTotal = allServerCounts?.values?.sum() ?: 0
             root.addView(patternPanel("2. ΜΟΤΙΒΟ SERVER — ΣΥΝΟΛΟ ΣΕΤ",
-                if (allServerTotal == 0) "$serverLabel: χωρίς καταγραφή"
-                else "$serverLabel\n" + patternLines(allServerCounts!!, allServerTotal)))
+                allServerCounts ?: emptyMap(), allServerTotal, if (allServerTotal == 0) "$serverLabel: χωρίς καταγραφή" else serverLabel))
 
             // 3. Opponent team overall across the match.
             val teamTotal = matchReceptionCounts.values.sum()
             root.addView(patternPanel("3. ΜΟΤΙΒΟ ΑΝΤΙΠΑΛΗΣ ΟΜΑΔΑΣ",
-                if (teamTotal == 0) "Χωρίς καταγραφή"
-                else patternLines(matchReceptionCounts, teamTotal)))
+                matchReceptionCounts, teamTotal, if (teamTotal == 0) "Χωρίς καταγραφή" else null))
         }
 
         if (servingTeam == 1) {
@@ -658,19 +658,31 @@ class MainActivity : AppCompatActivity() {
     private fun serverKey(player: Player): String =
         player.number.trim() + "|" + player.name.trim()
 
-    private fun patternLines(counts: Map<String, Int>, total: Int): String =
-        arrayOf("ΑΚ1","ΑΚ2","Λ")
-            .sortedByDescending { counts[it] ?: 0 }
-            .joinToString("\n") { role ->
-                val n = counts[role] ?: 0
-                val pct = if (total == 0) 0 else ((n * 100.0) / total).toInt()
-                val name = teams[0].roster.firstOrNull { it.role == role }?.name?.takeIf { it.isNotBlank() } ?: role
-                "$name — $n ($pct%)"
+    private fun patternBody(counts: Map<String, Int>, total: Int): SpannableStringBuilder {
+        val out = SpannableStringBuilder()
+        val roles = arrayOf("ΑΚ1","ΑΚ2","Λ").sortedByDescending { counts[it] ?: 0 }
+        val maxCount = roles.maxOfOrNull { counts[it] ?: 0 } ?: 0
+        roles.forEachIndexed { index, role ->
+            if (index > 0) out.append("\n")
+            val n = counts[role] ?: 0
+            val pct = if (total == 0) 0 else ((n * 100.0) / total).toInt()
+            val name = teams[0].roster.firstOrNull { it.role == role }?.name?.takeIf { it.isNotBlank() } ?: role
+            val start = out.length
+            out.append("$name — $n ($pct%)")
+            if (maxCount > 0 && n == maxCount) {
+                out.setSpan(ForegroundColorSpan(Color.RED), start, out.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             }
+        }
+        return out
+    }
 
-    private fun patternPanel(title: String, body: String): TextView =
+    private fun patternPanel(title: String, counts: Map<String, Int>, total: Int, prefix: String? = null): TextView =
         TextView(this).apply {
-            text = "$title\n$body"
+            val content = SpannableStringBuilder()
+            content.append(title)
+            if (!prefix.isNullOrBlank()) content.append("\n").append(prefix)
+            content.append("\n").append(patternBody(counts, total))
+            text = content
             gravity = Gravity.CENTER
             textSize = 14f
             setPadding(14,12,14,12)
