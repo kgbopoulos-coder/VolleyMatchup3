@@ -4,6 +4,7 @@ import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.text.Editable
+import android.text.Html
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
@@ -382,7 +383,7 @@ class MainActivity : AppCompatActivity() {
                 val server = currentOpponentServer()
                 val who = server?.let { listOf(it.number, it.name).filter { s -> s.isNotBlank() }.joinToString(" ") }
                     ?.takeIf { it.isNotBlank() } ?: "—"
-                "SERVICE: ${teams[1].name}\n🏐 SERVER: $who"
+                "SERVICE: ${teams[1].name}\n🏐 SERVER: $who — P1"
             }
             gravity = Gravity.CENTER
             textSize = 16f
@@ -658,31 +659,26 @@ class MainActivity : AppCompatActivity() {
     private fun serverKey(player: Player): String =
         player.number.trim() + "|" + player.name.trim()
 
-    private fun patternBody(counts: Map<String, Int>, total: Int): SpannableStringBuilder {
-        val out = SpannableStringBuilder()
+    private fun patternHtml(counts: Map<String, Int>, total: Int): String {
         val roles = arrayOf("ΑΚ1","ΑΚ2","Λ").sortedByDescending { counts[it] ?: 0 }
         val maxCount = roles.maxOfOrNull { counts[it] ?: 0 } ?: 0
-        roles.forEachIndexed { index, role ->
-            if (index > 0) out.append("\n")
+        return roles.joinToString("<br>") { role ->
             val n = counts[role] ?: 0
             val pct = if (total == 0) 0 else ((n * 100.0) / total).toInt()
             val name = teams[0].roster.firstOrNull { it.role == role }?.name?.takeIf { it.isNotBlank() } ?: role
-            val start = out.length
-            out.append("$name — $n ($pct%)")
-            if (maxCount > 0 && n == maxCount) {
-                out.setSpan(ForegroundColorSpan(Color.RED), start, out.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-            }
+            val row = "$name — $n ($pct%)"
+            if (maxCount > 0 && n == maxCount) "<font color='#D00000'><b>$row</b></font>" else row
         }
-        return out
     }
 
     private fun patternPanel(title: String, counts: Map<String, Int>, total: Int, prefix: String? = null): TextView =
         TextView(this).apply {
-            val content = SpannableStringBuilder()
-            content.append(title)
-            if (!prefix.isNullOrBlank()) content.append("\n").append(prefix)
-            content.append("\n").append(patternBody(counts, total))
-            text = content
+            val html = buildString {
+                append("<b>").append(title).append("</b>")
+                if (!prefix.isNullOrBlank()) append("<br>").append(prefix)
+                append("<br>").append(patternHtml(counts, total))
+            }
+            text = Html.fromHtml(html, Html.FROM_HTML_MODE_LEGACY)
             gravity = Gravity.CENTER
             textSize = 14f
             setPadding(14,12,14,12)
