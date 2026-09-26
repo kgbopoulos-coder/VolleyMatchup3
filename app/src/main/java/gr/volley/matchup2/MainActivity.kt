@@ -249,6 +249,7 @@ class MainActivity : AppCompatActivity() {
         addRotationPreview(0)
         addInitialRotationSelector(1)
         addRotationPreview(1)
+        addStartingServiceSelector()
         root.addView(button("ΠΡΟΒΟΛΗ ΣΤΟ ΓΗΠΕΔΟ"){
             applyInitialRotations()
             showCourt()
@@ -280,6 +281,26 @@ class MainActivity : AppCompatActivity() {
             layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
         })
         root.addView(row)
+    }
+
+    private fun addStartingServiceSelector() {
+        root.addView(TextView(this).apply {
+            text = "ΠΟΙΑ ΟΜΑΔΑ ΞΕΚΙΝΑ ΜΕ SERVICE;"
+            textSize = 17f
+            gravity = Gravity.CENTER
+            setPadding(0,20,0,6)
+        })
+        val options = arrayOf(teams[0].name, teams[1].name)
+        root.addView(Spinner(this).apply {
+            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, options)
+            setSelection(servingTeam)
+            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(a: AdapterView<*>?, v: View?, pos: Int, id: Long) {
+                    servingTeam = pos
+                }
+                override fun onNothingSelected(a: AdapterView<*>?) {}
+            }
+        })
     }
 
     private fun applyInitialRotations() {
