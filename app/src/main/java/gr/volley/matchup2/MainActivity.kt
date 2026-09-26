@@ -296,7 +296,18 @@ class MainActivity : AppCompatActivity() {
         currentScreen = "COURT"
         base("ΓΗΠΕΔΟ")
         root.addView(TextView(this).apply {
-            text = if (servingTeam == 0) "SERVICE: ${teams[0].name}" else "SERVICE: ${teams[1].name}"
+            text = if (servingTeam == 0) {
+                val ix = selected[0][0]
+                val server = if (ix in 0..13) teams[0].roster[ix] else null
+                val who = server?.let { listOf(it.number, it.name).filter { s -> s.isNotBlank() }.joinToString(" ") }
+                    ?.takeIf { it.isNotBlank() } ?: "—"
+                "SERVICE: ${teams[0].name}\n🏐 SERVER: $who"
+            } else {
+                val server = currentOpponentServer()
+                val who = server?.let { listOf(it.number, it.name).filter { s -> s.isNotBlank() }.joinToString(" ") }
+                    ?.takeIf { it.isNotBlank() } ?: "—"
+                "SERVICE: ${teams[1].name}\n🏐 SERVER: $who"
+            }
             gravity = Gravity.CENTER
             textSize = 16f
             setPadding(0,0,0,12)
