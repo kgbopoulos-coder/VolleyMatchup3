@@ -1,6 +1,7 @@
 package gr.volley.matchup2
 
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
@@ -13,104 +14,116 @@ data class Team(val name: String, val roster: MutableList<Player> = MutableList(
 class MainActivity : AppCompatActivity() {
     private val teams = arrayOf(Team("ΔΙΚΗ ΜΑΣ ΟΜΑΔΑ"), Team("ΑΝΤΙΠΑΛΗ ΟΜΑΔΑ"))
     private val roles = arrayOf("Π", "Δ", "ΑΚ", "Κ", "Λ")
+    private val selected = Array(2) { IntArray(6) { -1 } }
     private var teamIndex = 0
     private lateinit var root: LinearLayout
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        showHome()
-    }
+    override fun onCreate(savedInstanceState: Bundle?) { super.onCreate(savedInstanceState); showHome() }
 
     private fun base(title: String) {
         val scroll = ScrollView(this)
-        root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(28, 36, 28, 36)
-        }
+        root = LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; setPadding(28,36,28,36) }
         scroll.addView(root)
         root.addView(TextView(this).apply {
-            text = title
-            textSize = 24f
-            setTextColor(Color.rgb(32,32,95))
-            gravity = Gravity.CENTER
-            setPadding(0,0,0,24)
+            text=title; textSize=24f; setTextColor(Color.rgb(32,32,95)); gravity=Gravity.CENTER; setPadding(0,0,0,24)
         })
         setContentView(scroll)
     }
 
-    private fun button(label: String, action: () -> Unit) =
-        Button(this).apply { text = label; setOnClickListener { action() } }
+    private fun button(label:String, action:()->Unit)=Button(this).apply { text=label; setOnClickListener { action() } }
 
     private fun showHome() {
         base("VOLLEY MATCHUP 2")
-        root.addView(button("ROSTER — ΔΙΚΗ ΜΑΣ ΟΜΑΔΑ") { teamIndex=0; showRoster() })
-        root.addView(button("ROSTER — ΑΝΤΙΠΑΛΗ ΟΜΑΔΑ") { teamIndex=1; showRoster() })
-        root.addView(button("ΑΡΧΙΚΗ ΠΕΡΙΣΤΡΟΦΗ") { showRotationSetup() })
+        root.addView(button("ROSTER — ΔΙΚΗ ΜΑΣ ΟΜΑΔΑ"){ teamIndex=0; showRoster() })
+        root.addView(button("ROSTER — ΑΝΤΙΠΑΛΗ ΟΜΑΔΑ"){ teamIndex=1; showRoster() })
+        root.addView(button("ΑΡΧΙΚΗ ΠΕΡΙΣΤΡΟΦΗ"){ showRotationSetup() })
+        root.addView(button("ΓΗΠΕΔΟ"){ showCourt() })
     }
 
     private fun showRoster() {
         base(teams[teamIndex].name)
-        teams[teamIndex].roster.forEachIndexed { i, p ->
-            val row = LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
-            val no = EditText(this).apply {
-                hint="No"; setText(p.number)
-                layoutParams=LinearLayout.LayoutParams(0,-2,0.7f)
-            }
-            val name = EditText(this).apply {
-                hint="Παίκτρια ${i+1}"; setText(p.name)
-                layoutParams=LinearLayout.LayoutParams(0,-2,2.3f)
-            }
-            val role = Spinner(this).apply {
-                adapter=ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, roles)
-                val ix=roles.indexOf(p.role); if(ix>=0) setSelection(ix)
+        teams[teamIndex].roster.forEachIndexed { i,p ->
+            val row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
+            val no=EditText(this).apply { hint="No"; setText(p.number); layoutParams=LinearLayout.LayoutParams(0,-2,.7f) }
+            val name=EditText(this).apply { hint="Παίκτρια ${i+1}"; setText(p.name); layoutParams=LinearLayout.LayoutParams(0,-2,2.3f) }
+            val role=Spinner(this).apply {
+                adapter=ArrayAdapter(this@MainActivity,android.R.layout.simple_spinner_dropdown_item,roles)
+                val ix=roles.indexOf(p.role); if(ix>=0)setSelection(ix)
                 layoutParams=LinearLayout.LayoutParams(0,-2,1f)
             }
             row.addView(no); row.addView(name); row.addView(role); root.addView(row)
-            no.setOnFocusChangeListener { _, _ -> p.number=no.text.toString() }
-            name.setOnFocusChangeListener { _, _ -> p.name=name.text.toString() }
-            role.onItemSelectedListener=object: AdapterView.OnItemSelectedListener {
-                override fun onItemSelected(a:AdapterView<*>?,v:View?,pos:Int,id:Long){ p.role=roles[pos] }
+            no.setOnFocusChangeListener{_,_->p.number=no.text.toString()}
+            name.setOnFocusChangeListener{_,_->p.name=name.text.toString()}
+            role.onItemSelectedListener=object:AdapterView.OnItemSelectedListener{
+                override fun onItemSelected(a:AdapterView<*>?,v:View?,pos:Int,id:Long){p.role=roles[pos]}
                 override fun onNothingSelected(a:AdapterView<*>?){}
             }
         }
-        root.addView(button("ΑΠΟΘΗΚΕΥΣΗ & ΠΙΣΩ") {
-            currentFocus?.clearFocus()
-            showHome()
-        })
+        root.addView(button("ΑΠΟΘΗΚΕΥΣΗ & ΠΙΣΩ"){ currentFocus?.clearFocus(); showHome() })
     }
 
     private fun showRotationSetup() {
         base("ΑΡΧΙΚΗ ΠΕΡΙΣΤΡΟΦΗ")
-        addTeamRotation(0)
-        addTeamRotation(1)
-        root.addView(button("ΠΙΣΩ") { showHome() })
+        addTeamRotation(0); addTeamRotation(1)
+        root.addView(button("ΠΡΟΒΟΛΗ ΣΤΟ ΓΗΠΕΔΟ"){ showCourt() })
+        root.addView(button("ΠΙΣΩ"){ showHome() })
     }
 
     private fun addTeamRotation(ti:Int) {
-        root.addView(TextView(this).apply {
-            text=teams[ti].name; textSize=18f; setPadding(0,24,0,8)
-        })
-        val available = teams[ti].roster.mapIndexed { i,p ->
-            if(p.name.isBlank()) "${i+1}. —" else "${p.number} ${p.name} (${p.role})"
-        }
-        for(pos in listOf("P1","P2","P3","P4","P5","P6")) {
-            val row=LinearLayout(this).apply {
-                orientation=LinearLayout.HORIZONTAL
-                gravity=Gravity.CENTER_VERTICAL
-            }
-            row.addView(TextView(this).apply {
-                text=pos; textSize=17f
-                layoutParams=LinearLayout.LayoutParams(0,-2,.5f)
-            })
+        root.addView(TextView(this).apply { text=teams[ti].name; textSize=18f; setPadding(0,24,0,8) })
+        val labels=teams[ti].roster.mapIndexed{i,p->if(p.name.isBlank())"${i+1}. —" else "${p.number} ${p.name} (${p.role})"}
+        for(pos in 0..5){
+            val row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER_VERTICAL }
+            row.addView(TextView(this).apply { text="P${pos+1}"; textSize=17f; layoutParams=LinearLayout.LayoutParams(0,-2,.5f) })
             row.addView(Spinner(this).apply {
-                adapter=ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, available)
+                adapter=ArrayAdapter(this@MainActivity,android.R.layout.simple_spinner_dropdown_item,labels)
+                if(selected[ti][pos]>=0)setSelection(selected[ti][pos])
+                onItemSelectedListener=object:AdapterView.OnItemSelectedListener{
+                    override fun onItemSelected(a:AdapterView<*>?,v:View?,i:Int,id:Long){selected[ti][pos]=i}
+                    override fun onNothingSelected(a:AdapterView<*>?){}
+                }
                 layoutParams=LinearLayout.LayoutParams(0,-2,3f)
             })
             root.addView(row)
         }
+    }
+
+    private fun showCourt() {
+        base("ΓΗΠΕΔΟ")
+        addCourtHalf(1, "ΑΝΤΙΠΑΛΗ ΟΜΑΔΑ", true)
         root.addView(TextView(this).apply {
-            text="Περιστροφή: P1 → P6 → P5 → P4 → P3 → P2 → P1"
-            setPadding(0,10,0,12)
+            text="────────  ΦΙΛΕΣ  ────────"; gravity=Gravity.CENTER; textSize=16f; setPadding(0,12,0,12)
         })
+        addCourtHalf(0, "ΔΙΚΗ ΜΑΣ ΟΜΑΔΑ", false)
+        root.addView(button("ΠΙΣΩ"){showHome()})
+    }
+
+    private fun addCourtHalf(ti:Int,title:String,opponent:Boolean){
+        root.addView(TextView(this).apply { text=title; gravity=Gravity.CENTER; textSize=18f; setPadding(0,8,0,8) })
+        val court=LinearLayout(this).apply {
+            orientation=LinearLayout.VERTICAL
+            setPadding(8,8,8,8)
+            background=GradientDrawable().apply { setColor(Color.rgb(238,177,104)); setStroke(3,Color.WHITE) }
+        }
+        // Standard visual court: front row next to net, back row behind it.
+        val rows=if(opponent) arrayOf(intArrayOf(4,3,2),intArrayOf(5,0,1))
+                 else arrayOf(intArrayOf(3,2,1),intArrayOf(4,5,0))
+        rows.forEach { positions ->
+            val row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER }
+            positions.forEach { p -> row.addView(playerBox(ti,p),LinearLayout.LayoutParams(0,150,1f)) }
+            court.addView(row)
+        }
+        root.addView(court)
+    }
+
+    private fun playerBox(ti:Int,pos:Int)=TextView(this).apply {
+        val ix=selected[ti][pos]
+        val player=if(ix in 0..13)teams[ti].roster[ix] else null
+        text=buildString {
+            append("P${pos+1}")
+            if(player!=null && player.name.isNotBlank()){ append("\n"); append(player.name); if(player.role.isNotBlank())append("  [${player.role}]") }
+        }
+        gravity=Gravity.CENTER; textSize=14f; setTextColor(Color.BLACK); setPadding(4,4,4,4)
+        background=GradientDrawable().apply { setColor(Color.argb(35,255,255,255)); setStroke(2,Color.WHITE) }
     }
 }
