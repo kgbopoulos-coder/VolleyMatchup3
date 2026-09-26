@@ -269,6 +269,37 @@ class MainActivity : AppCompatActivity() {
             textSize = 16f
             setPadding(0,0,0,12)
         })
+
+        if (servingTeam == 1) {
+            val total = receptionCounts.values.sum()
+            root.addView(TextView(this).apply {
+                text = if (total == 0) {
+                    "ΜΟΤΙΒΟ SERVICE\nΔεν υπάρχουν ακόμη καταγραφές"
+                } else {
+                    val target = arrayOf("ΑΚ1","ΑΚ2","Λ").maxByOrNull { receptionCounts[it] ?: 0 } ?: "ΑΚ1"
+                    val targetCount = receptionCounts[target] ?: 0
+                    val player = teams[0].roster.firstOrNull { it.role == target }
+                    val name = player?.name?.takeIf { it.isNotBlank() } ?: target
+                    val back = receptionBackCounts[target] ?: 0
+                    val front = receptionFrontCounts[target] ?: 0
+                    val pct = ((targetCount * 100.0) / total).toInt()
+                    "ΜΟΤΙΒΟ SERVICE\nΚύριος στόχος: $name — $targetCount ($pct%)\nΠίσω: $back   •   Μπροστά: $front\nΠατήστε για πλήρη ανάλυση"
+                }
+                gravity = Gravity.CENTER
+                textSize = 14f
+                setPadding(14,12,14,12)
+                background = GradientDrawable().apply {
+                    setColor(Color.argb(22,32,32,95))
+                    setStroke(2, Color.rgb(32,32,95))
+                    cornerRadius = 14f
+                }
+                setOnClickListener { showServicePattern() }
+            }, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { setMargins(0,0,0,12) })
+        }
+
         if (servingTeam == 1) {
             addReceptionView()
         } else {
