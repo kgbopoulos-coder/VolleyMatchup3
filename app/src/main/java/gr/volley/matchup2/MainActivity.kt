@@ -558,9 +558,12 @@ class MainActivity : AppCompatActivity() {
         val rotation = setterPos + 1
 
         val receiverRoles = when(rotation) {
-            1,6 -> arrayOf("ΑΚ1","Λ","ΑΚ2")
-            4,5 -> arrayOf("Λ","ΑΚ1","ΑΚ2")
-            2,3 -> arrayOf("ΑΚ2","Λ","ΑΚ1")
+            1 -> arrayOf("ΑΚ1","Λ","ΑΚ2")
+            2 -> arrayOf("Λ","ΑΚ2","ΑΚ1")
+            3 -> arrayOf("ΑΚ2","Λ","ΑΚ1")
+            4 -> arrayOf("Λ","ΑΚ1","ΑΚ2")
+            5 -> arrayOf("Λ","ΑΚ1","ΑΚ2")
+            6 -> arrayOf("ΑΚ1","Λ","ΑΚ2")
             else -> arrayOf("ΑΚ1","Λ","ΑΚ2")
         }
 
