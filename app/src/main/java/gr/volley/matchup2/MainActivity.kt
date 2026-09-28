@@ -493,6 +493,17 @@ class MainActivity : AppCompatActivity() {
                 matchReceptionCounts, teamTotal, if (teamTotal == 0) "Χωρίς καταγραφή" else null))
         }
 
+        // Always show the opponent on the upper half of the board.
+        addCourtHalf(1, teams[1].name, true)
+
+        root.addView(TextView(this).apply {
+            text = "────────────  ΦΙΛΕ  ────────────"
+            gravity = Gravity.CENTER
+            textSize = 15f
+            setPadding(0,6,0,6)
+        })
+
+        // Our team stays on the lower half. When receiving, use the reception view.
         if (servingTeam == 1) {
             addReceptionView()
         } else {
