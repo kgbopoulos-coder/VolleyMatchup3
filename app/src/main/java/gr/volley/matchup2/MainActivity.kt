@@ -883,50 +883,93 @@ class MainActivity : AppCompatActivity() {
         root.addView(button("ΠΙΣΩ"){ showCourt() })
     }
 
+    private fun receptionRoles(rotation: Int): Array<String> = when(rotation) {
+        1 -> arrayOf("ΑΚ1","Λ","ΑΚ2")
+        2 -> arrayOf("ΑΚ2","Λ","ΑΚ1")
+        3 -> arrayOf("ΑΚ2","Λ","ΑΚ1")
+        4 -> arrayOf("Λ","ΑΚ1","ΑΚ2")
+        5 -> arrayOf("Λ","ΑΚ1","ΑΚ2")
+        6 -> arrayOf("ΑΚ1","Λ","ΑΚ2")
+        else -> arrayOf("ΑΚ1","Λ","ΑΚ2")
+    }
+
+    private fun teamRotation(ti: Int): Int {
+        val setterPos = (0..5).firstOrNull { pos ->
+            val ix = selected[ti][pos]
+            ix in 0..13 && teams[ti].roster[ix].role == "Π"
+        } ?: 0
+        return setterPos + 1
+    }
+
     private fun addCourtHalf(ti:Int,title:String,opponent:Boolean){
-        root.addView(TextView(this).apply { text=title; gravity=Gravity.CENTER; textSize=18f; setPadding(0,8,0,8) })
+        val receiving = servingTeam != ti
+        root.addView(TextView(this).apply {
+            text = if (receiving) "$title — ΥΠΟΔΟΧΗ" else title
+            gravity=Gravity.CENTER; textSize=18f; setPadding(0,8,0,8)
+        })
         val court=LinearLayout(this).apply {
             orientation=LinearLayout.VERTICAL
             setPadding(8,8,8,8)
             background=GradientDrawable().apply { setColor(Color.rgb(238,177,104)); setStroke(3,Color.WHITE) }
         }
 
-        // Opponent: P1 P6 P5 / P2 P3 P4.
-        // Our side is viewed from the opposite baseline (180°):
-        // P4 P3 P2 / P5 P6 P1, with P1 at bottom-right.
+        val rotation = teamRotation(ti)
+        val reception = receptionRoles(rotation)
+        val libero = teams[ti].roster.firstOrNull { it.role == "Λ" }
+
+        // Visual orientation:
+        // opponent: P1 P6 P5 / P2 P3 P4
+        // ours (180°): P4 P3 P2 / P5 P6 P1
         val rows = if (opponent) {
             arrayOf(intArrayOf(0,5,4), intArrayOf(1,2,3))
         } else {
             arrayOf(intArrayOf(3,2,1), intArrayOf(4,5,0))
         }
+
         rows.forEach { positions ->
             val row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER }
-            positions.forEach { p -> row.addView(playerBox(ti,p),LinearLayout.LayoutParams(0,150,1f)) }
+            positions.forEach { p ->
+                // When receiving, P1/P6/P5 show the agreed reception formation.
+                val receptionIndex = when(p) { 0 -> 0; 5 -> 1; 4 -> 2; else -> -1 }
+                val receptionRole = if (receiving && receptionIndex >= 0) reception[receptionIndex] else null
+                val receptionPlayer = if (receptionRole == "Λ") libero else if (receptionRole != null) {
+                    teams[ti].roster.firstOrNull { it.role == receptionRole }
+                } else null
+                row.addView(playerBox(ti,p,receptionPlayer,receptionRole,receiving),LinearLayout.LayoutParams(0,150,1f))
+            }
             court.addView(row)
         }
         root.addView(court)
     }
 
-    private fun playerBox(ti:Int,pos:Int)=TextView(this).apply {
+    private fun playerBox(
+        ti:Int,
+        pos:Int,
+        overridePlayer: Player? = null,
+        overrideRole: String? = null,
+        receiving: Boolean = false
+    )=TextView(this).apply {
         val ix=selected[ti][pos]
-        val player=if(ix in 0..13)teams[ti].roster[ix] else null
+        val normalPlayer=if(ix in 0..13)teams[ti].roster[ix] else null
+        val player=overridePlayer ?: normalPlayer
+        val role=overrideRole ?: player?.role
         text=buildString {
             append("P${pos+1}")
-            if(player!=null && player.name.isNotBlank()){ append("\n"); append(player.name); if(player.role.isNotBlank())append("  [${player.role}]") }
+            if(player!=null && player.name.isNotBlank()){
+                append("\n"); append(player.name)
+                if(!role.isNullOrBlank()) append("  [$role]")
+            } else if (!role.isNullOrBlank()) {
+                append("\n"); append(role)
+            }
         }
         gravity=Gravity.CENTER; textSize=14f; setTextColor(Color.BLACK); setPadding(4,4,4,4)
         background=GradientDrawable().apply { setColor(Color.argb(35,255,255,255)); setStroke(2,Color.WHITE) }
 
-        // When we receive, tapping one of the three reception players records it immediately.
-        if (ti == 0 && servingTeam == 1 && player != null && player.role in arrayOf("ΑΚ1","ΑΚ2","Λ")) {
-            isClickable = true
+        // Tap the actual receiver shown in P1/P6/P5. Reception statistics are for our team.
+        if (ti == 0 && receiving && overrideRole in arrayOf("ΑΚ1","ΑΚ2","Λ") && player != null) {
+            isClickable=true
             setOnClickListener {
-                val setterPos = (0..5).firstOrNull { courtPos ->
-                    val playerIndex = selected[0][courtPos]
-                    playerIndex in 0..13 && teams[0].roster[playerIndex].role == "Π"
-                } ?: 0
-                val rotation = setterPos + 1
-                recordReception(player, player.role, rotation, pos in 1..3)
+                recordReception(player, overrideRole!!, teamRotation(0), pos in 1..3)
             }
         }
     }
