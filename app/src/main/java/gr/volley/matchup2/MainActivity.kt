@@ -992,18 +992,35 @@ class MainActivity : AppCompatActivity() {
         gravity=Gravity.CENTER; textSize=14f; setTextColor(Color.BLACK); setPadding(4,4,4,4)
         background=GradientDrawable().apply { setColor(Color.argb(35,255,255,255)); setStroke(2,Color.WHITE) }
 
-        // The displayed receiver is tappable for either team.
-        // Our-team taps also feed the existing service/reception statistics.
+        // Tap a receiver, then choose whether the serve target was FRONT or BACK.
+        // Only after that choice is the reception recorded and the team moves to attack.
         if (receiving && overrideRole in arrayOf("ΑΚ1","ΑΚ2","Λ") && player != null) {
             isClickable=true
             setOnClickListener {
-                if (ti == 0) {
-                    recordReception(player, overrideRole!!, teamRotation(ti), pos in 1..3)
-                } else {
-                    receptionRecordedThisRally = true
-                    Toast.makeText(this@MainActivity, "Υποδοχή: ${player.name.takeIf { it.isNotBlank() } ?: overrideRole}", Toast.LENGTH_SHORT).show()
-                    showCourt()
-                }
+                val who = player.name.takeIf { it.isNotBlank() } ?: overrideRole!!
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle("Υποδοχή: $who")
+                    .setMessage("Πού στόχευσε το service;")
+                    .setPositiveButton("ΜΠΡΟΣΤΑ") { _, _ ->
+                        if (ti == 0) {
+                            recordReception(player, overrideRole!!, teamRotation(ti), true)
+                        } else {
+                            receptionRecordedThisRally = true
+                            Toast.makeText(this@MainActivity, "Υποδοχή: $who — ΜΠΡΟΣΤΑ", Toast.LENGTH_SHORT).show()
+                            showCourt()
+                        }
+                    }
+                    .setNegativeButton("ΠΙΣΩ") { _, _ ->
+                        if (ti == 0) {
+                            recordReception(player, overrideRole!!, teamRotation(ti), false)
+                        } else {
+                            receptionRecordedThisRally = true
+                            Toast.makeText(this@MainActivity, "Υποδοχή: $who — ΠΙΣΩ", Toast.LENGTH_SHORT).show()
+                            showCourt()
+                        }
+                    }
+                    .setNeutralButton("ΑΚΥΡΟ", null)
+                    .show()
             }
         }
     }
