@@ -34,6 +34,8 @@ class MainActivity : AppCompatActivity() {
     private var servingTeam = 0 // 0 = δική μας, 1 = αντίπαλη
     private var receptionRecordedThisRally = false
     private val initialRotation = intArrayOf(1, 1)
+    // Explicit logical rotation labels. Order is P1 -> P6 -> P5 -> P4 -> P3 -> P2 -> P1.
+    private val currentRotation = intArrayOf(1, 1)
     private val receptionCounts = mutableMapOf<String, Int>()
     private val receptionCountsByRotation = mutableMapOf<String, Int>()
     private val receptionBackCounts = mutableMapOf<String, Int>()
@@ -364,10 +366,21 @@ class MainActivity : AppCompatActivity() {
     private fun applyInitialRotations() {
         for (ti in 0..1) {
             p1Formation[ti].copyInto(selected[ti])
-            repeat(initialRotation[ti] - 1) {
-                rotateTeam(ti)
+            // The selector names the volleyball rotation directly; it is NOT a count
+            // of clockwise steps from P1.
+            val steps = when (initialRotation[ti]) {
+                1 -> 0
+                6 -> 1
+                5 -> 2
+                4 -> 3
+                3 -> 4
+                2 -> 5
+                else -> 0
             }
+            repeat(steps) { rotatePlayersOnly(ti) }
+            currentRotation[ti] = initialRotation[ti]
         }
+        receptionRecordedThisRally = false
     }
 
     private fun addP1FormationEditor(ti: Int) {
@@ -589,9 +602,7 @@ class MainActivity : AppCompatActivity() {
         showCourt()
     }
 
-    private fun rotateTeam(ti: Int) {
-        // Volleyball clockwise rotation:
-        // player at P1 -> P6 -> P5 -> P4 -> P3 -> P2 -> P1
+    private fun rotatePlayersOnly(ti: Int) {
         val old = selected[ti].clone()
         selected[ti][5] = old[0] // P1 -> P6
         selected[ti][4] = old[5] // P6 -> P5
@@ -599,6 +610,19 @@ class MainActivity : AppCompatActivity() {
         selected[ti][2] = old[3] // P4 -> P3
         selected[ti][1] = old[2] // P3 -> P2
         selected[ti][0] = old[1] // P2 -> P1
+    }
+
+    private fun rotateTeam(ti: Int) {
+        rotatePlayersOnly(ti)
+        currentRotation[ti] = when (currentRotation[ti]) {
+            1 -> 6
+            6 -> 5
+            5 -> 4
+            4 -> 3
+            3 -> 2
+            2 -> 1
+            else -> 1
+        }
     }
 
     private var pendingReception: Triple<Player?, String, Int>? = null
@@ -889,7 +913,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun receptionRoles(rotation: Int): Array<String> = when(rotation) {
         1 -> arrayOf("ΑΚ1","Λ","ΑΚ2")
-        2 -> arrayOf("ΑΚ2","Λ","ΑΚ1")
+        2 -> arrayOf("Λ","ΑΚ2","ΑΚ1")
         3 -> arrayOf("ΑΚ2","Λ","ΑΚ1")
         4 -> arrayOf("Λ","ΑΚ1","ΑΚ2")
         5 -> arrayOf("Λ","ΑΚ1","ΑΚ2")
@@ -914,13 +938,7 @@ class MainActivity : AppCompatActivity() {
         return if (pos in arrayOf(0,4,5) && role in arrayOf("Κ1","Κ2")) "Λ" else role
     }
 
-    private fun teamRotation(ti: Int): Int {
-        val setterPos = (0..5).firstOrNull { pos ->
-            val ix = selected[ti][pos]
-            ix in 0..13 && teams[ti].roster[ix].role == "Π"
-        } ?: 0
-        return setterPos + 1
-    }
+    private fun teamRotation(ti: Int): Int = currentRotation[ti]
 
     private fun addCourtHalf(ti:Int,title:String,opponent:Boolean){
         val receiving = servingTeam != ti
