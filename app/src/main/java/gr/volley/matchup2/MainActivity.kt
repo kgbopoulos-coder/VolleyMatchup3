@@ -897,6 +897,23 @@ class MainActivity : AppCompatActivity() {
         else -> arrayOf("ΑΚ1","Λ","ΑΚ2")
     }
 
+    private fun attackRoleAt(rotation: Int, pos: Int): String? {
+        // Offensive base positions by rotation. P1..P6 rotate clockwise from the saved P1.
+        // In the back row, a middle is displayed as libero; front-row middle remains K1/K2.
+        val base = arrayOf("Π","ΑΚ1","Κ1","Δ","ΑΚ2","Κ2")
+        val shift = (rotation - 1).coerceIn(0,5)
+        val rolesAtPos = Array(6) { "" }
+        for (originalPos in 0..5) {
+            var newPos = originalPos
+            repeat(shift) {
+                newPos = when(newPos) { 0->5; 5->4; 4->3; 3->2; 2->1; else->0 }
+            }
+            rolesAtPos[newPos] = base[originalPos]
+        }
+        val role = rolesAtPos[pos]
+        return if (pos in arrayOf(0,4,5) && role in arrayOf("Κ1","Κ2")) "Λ" else role
+    }
+
     private fun teamRotation(ti: Int): Int {
         val setterPos = (0..5).firstOrNull { pos ->
             val ix = selected[ti][pos]
@@ -937,10 +954,15 @@ class MainActivity : AppCompatActivity() {
                 // When receiving, P1/P6/P5 show the agreed reception formation.
                 val receptionIndex = when(p) { 0 -> 0; 5 -> 1; 4 -> 2; else -> -1 }
                 val receptionRole = if (showReceptionFormation && receptionIndex >= 0) reception[receptionIndex] else null
-                val receptionPlayer = if (receptionRole == "Λ") libero else if (receptionRole != null) {
-                    teams[ti].roster.firstOrNull { it.role == receptionRole }
+                val attackRole = if (receiving && receptionRecordedThisRally) attackRoleAt(rotation, p) else null
+                val displayRole = receptionRole ?: attackRole
+                val displayPlayer = if (displayRole == "Λ") libero else if (displayRole != null) {
+                    teams[ti].roster.firstOrNull { it.role == displayRole }
                 } else null
-                row.addView(playerBox(ti,p,receptionPlayer,receptionRole,showReceptionFormation),LinearLayout.LayoutParams(0,150,1f))
+                row.addView(
+                    playerBox(ti,p,displayPlayer,displayRole,showReceptionFormation),
+                    LinearLayout.LayoutParams(0,150,1f)
+                )
             }
             court.addView(row)
         }
