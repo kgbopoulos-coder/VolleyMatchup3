@@ -762,20 +762,20 @@ class MainActivity : AppCompatActivity() {
             })
         }
 
+        val totalBack = receptionBackCounts.values.sum()
+        val totalFront = receptionFrontCounts.values.sum()
         root.addView(TextView(this).apply {
-            text = "ΣΤΟΧΟΣ ΑΝΑ ΘΕΣΗ"
+            text = "ΣΤΟΧΟΣ SERVICE — ΜΠΡΟΣΤΑ / ΠΙΣΩ"
             textSize = 18f
             gravity = Gravity.CENTER
             setPadding(0,20,0,8)
         })
-        arrayOf("P1","P6","P5","P2","P3","P4").forEach { pos ->
-            val n = receptionPositionCounts[pos] ?: 0
-            root.addView(TextView(this).apply {
-                text = "$pos: $n (${pct(n)}%)"
-                textSize = 16f
-                setPadding(0,5,0,5)
-            })
-        }
+        root.addView(TextView(this).apply {
+            text = "ΜΠΡΟΣΤΑ: $totalFront (${pct(totalFront)}%) — ΠΙΣΩ: $totalBack (${pct(totalBack)}%)"
+            textSize = 16f
+            gravity = Gravity.CENTER
+            setPadding(0,5,0,5)
+        })
 
         root.addView(TextView(this).apply {
             text = "ΑΝΑ ΠΕΡΙΣΤΡΟΦΗ"
