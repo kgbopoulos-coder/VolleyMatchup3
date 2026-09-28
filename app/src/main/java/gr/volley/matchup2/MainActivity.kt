@@ -640,9 +640,23 @@ class MainActivity : AppCompatActivity() {
             gravity = Gravity.CENTER
         }
         receiverRoles.forEach { role ->
-            val player = if(role == "Λ") libero else teams[0].roster.firstOrNull { it.role == role }
+            // Resolve the receiver from the six players actually on court first.
+            // This keeps the reception board tied to the loaded/selected P1 instead
+            // of accidentally showing only the role label.
+            val player = if (role == "Λ") {
+                libero
+            } else {
+                selected[0]
+                    .mapNotNull { ix -> teams[0].roster.getOrNull(ix) }
+                    .firstOrNull { it.role == role }
+                    ?: teams[0].roster.firstOrNull { it.role == role }
+            }
             receivers.addView(Button(this).apply {
-                text = player?.name?.takeIf { it.isNotBlank() } ?: role
+                text = if (player != null && player.name.isNotBlank()) {
+                    "${player.name}\n[$role]"
+                } else {
+                    role
+                }
                 textSize = 12f
                 isAllCaps = false
                 setOnClickListener {
