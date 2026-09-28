@@ -890,10 +890,15 @@ class MainActivity : AppCompatActivity() {
             setPadding(8,8,8,8)
             background=GradientDrawable().apply { setColor(Color.rgb(238,177,104)); setStroke(3,Color.WHITE) }
         }
-        // Visual layout requested:
-        // top, left -> right:    P1 P6 P5
-        // bottom, left -> right: P2 P3 P4  (so bottom right -> left is P4 P3 P2)
-        val rows = arrayOf(intArrayOf(0,5,4), intArrayOf(1,2,3))
+
+        // Opponent: P1 P6 P5 / P2 P3 P4.
+        // Our side is viewed from the opposite baseline (180°):
+        // P4 P3 P2 / P5 P6 P1, with P1 at bottom-right.
+        val rows = if (opponent) {
+            arrayOf(intArrayOf(0,5,4), intArrayOf(1,2,3))
+        } else {
+            arrayOf(intArrayOf(3,2,1), intArrayOf(4,5,0))
+        }
         rows.forEach { positions ->
             val row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER }
             positions.forEach { p -> row.addView(playerBox(ti,p),LinearLayout.LayoutParams(0,150,1f)) }
@@ -911,5 +916,18 @@ class MainActivity : AppCompatActivity() {
         }
         gravity=Gravity.CENTER; textSize=14f; setTextColor(Color.BLACK); setPadding(4,4,4,4)
         background=GradientDrawable().apply { setColor(Color.argb(35,255,255,255)); setStroke(2,Color.WHITE) }
+
+        // When we receive, tapping one of the three reception players records it immediately.
+        if (ti == 0 && servingTeam == 1 && player != null && player.role in arrayOf("ΑΚ1","ΑΚ2","Λ")) {
+            isClickable = true
+            setOnClickListener {
+                val setterPos = (0..5).firstOrNull { courtPos ->
+                    val playerIndex = selected[0][courtPos]
+                    playerIndex in 0..13 && teams[0].roster[playerIndex].role == "Π"
+                } ?: 0
+                val rotation = setterPos + 1
+                recordReception(player, player.role, rotation, pos in 1..3)
+            }
+        }
     }
 }
