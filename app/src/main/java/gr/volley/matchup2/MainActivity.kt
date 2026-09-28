@@ -585,6 +585,34 @@ class MainActivity : AppCompatActivity() {
         }
         root.addView(receivers)
 
+        val frontRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+        arrayOf(1,2,3).forEach { pos ->
+            val ix = selected[0][pos]
+            val player = if (ix in 0..13) teams[0].roster[ix] else null
+            frontRow.addView(TextView(this).apply {
+                text = buildString {
+                    append("P${pos+1}")
+                    if (player != null) {
+                        append("\n")
+                        append(player.name.takeIf { it.isNotBlank() } ?: player.role)
+                        if (player.role.isNotBlank()) append("\n[${player.role}]")
+                    }
+                }
+                gravity = Gravity.CENTER
+                textSize = 12f
+                setTextColor(Color.BLACK)
+                setPadding(4,4,4,4)
+                background = GradientDrawable().apply {
+                    setColor(Color.argb(35,255,255,255))
+                    setStroke(2,Color.WHITE)
+                }
+            }, LinearLayout.LayoutParams(0,150,1f))
+        }
+        root.addView(frontRow)
+
         val depthRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
