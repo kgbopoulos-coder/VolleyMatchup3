@@ -503,12 +503,9 @@ class MainActivity : AppCompatActivity() {
             setPadding(0,6,0,6)
         })
 
-        // Our team stays on the lower half. When receiving, use the reception view.
-        if (servingTeam == 1) {
-            addReceptionView()
-        } else {
-            addCourtHalf(0, teams[0].name, false)
-        }
+        // Our team is always shown as a normal six-player court, just like the opponent.
+        // Names and roles come from the active rotation and move automatically with rotation.
+        addCourtHalf(0, teams[0].name, false)
 
         root.addView(button("ΠΟΝΤΟΣ ΔΙΚΟΣ ΜΑΣ") { pointWonBy(0) })
         root.addView(button("ΠΟΝΤΟΣ ΑΝΤΙΠΑΛΟΥ") { pointWonBy(1) })
