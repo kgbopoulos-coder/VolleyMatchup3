@@ -954,8 +954,21 @@ class MainActivity : AppCompatActivity() {
                 // When receiving, P1/P6/P5 show the agreed reception formation.
                 val receptionIndex = when(p) { 0 -> 0; 5 -> 1; 4 -> 2; else -> -1 }
                 val receptionRole = if (showReceptionFormation && receptionIndex >= 0) reception[receptionIndex] else null
+                // Special serving formation only for rotation P1:
+                // P1=Π, P6=ΑΚ2, P5=Λ, P4=ΑΚ1, P3=Κ2, P2=Δ.
+                val servingP1Role = if (!receiving && rotation == 1) {
+                    when (p) {
+                        0 -> "Π"
+                        5 -> "ΑΚ2"
+                        4 -> "Λ"
+                        3 -> "ΑΚ1"
+                        2 -> "Κ2"
+                        1 -> "Δ"
+                        else -> null
+                    }
+                } else null
                 val attackRole = if (receiving && receptionRecordedThisRally) attackRoleAt(rotation, p) else null
-                val displayRole = receptionRole ?: attackRole
+                val displayRole = receptionRole ?: servingP1Role ?: attackRole
                 val displayPlayer = if (displayRole == "Λ") libero else if (displayRole != null) {
                     teams[ti].roster.firstOrNull { it.role == displayRole }
                 } else null
