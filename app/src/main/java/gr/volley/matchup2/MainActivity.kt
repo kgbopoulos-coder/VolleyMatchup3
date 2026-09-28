@@ -32,6 +32,7 @@ class MainActivity : AppCompatActivity() {
     private val p1Formation = Array(2) { IntArray(6) { -1 } }
     private var teamIndex = 0
     private var servingTeam = 0 // 0 = δική μας, 1 = αντίπαλη
+    private var receptionRecordedThisRally = false
     private val initialRotation = intArrayOf(1, 1)
     private val receptionCounts = mutableMapOf<String, Int>()
     private val receptionCountsByRotation = mutableMapOf<String, Int>()
@@ -583,6 +584,8 @@ class MainActivity : AppCompatActivity() {
             rotateTeam(winner)
             servingTeam = winner
         }
+        // Every new rally starts with the receiving team in reception formation.
+        receptionRecordedThisRally = false
         showCourt()
     }
 
@@ -761,7 +764,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         val who = player?.name?.takeIf { it.isNotBlank() } ?: role
-        Toast.makeText(this, "+1 υποδοχή: $who (${if(front) "μπροστά" else "πίσω"})", Toast.LENGTH_SHORT).show()
+        receptionRecordedThisRally = true
+        Toast.makeText(this, "+1 υποδοχή: $who", Toast.LENGTH_SHORT).show()
         showCourt()
     }
 
@@ -903,8 +907,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun addCourtHalf(ti:Int,title:String,opponent:Boolean){
         val receiving = servingTeam != ti
+        val showReceptionFormation = receiving && !receptionRecordedThisRally
         root.addView(TextView(this).apply {
-            text = if (receiving) "$title — ΥΠΟΔΟΧΗ" else title
+            text = if (showReceptionFormation) "$title — ΥΠΟΔΟΧΗ" else if (receiving) "$title — ΕΠΙΘΕΣΗ" else title
             gravity=Gravity.CENTER; textSize=18f; setPadding(0,8,0,8)
         })
         val court=LinearLayout(this).apply {
@@ -931,11 +936,11 @@ class MainActivity : AppCompatActivity() {
             positions.forEach { p ->
                 // When receiving, P1/P6/P5 show the agreed reception formation.
                 val receptionIndex = when(p) { 0 -> 0; 5 -> 1; 4 -> 2; else -> -1 }
-                val receptionRole = if (receiving && receptionIndex >= 0) reception[receptionIndex] else null
+                val receptionRole = if (showReceptionFormation && receptionIndex >= 0) reception[receptionIndex] else null
                 val receptionPlayer = if (receptionRole == "Λ") libero else if (receptionRole != null) {
                     teams[ti].roster.firstOrNull { it.role == receptionRole }
                 } else null
-                row.addView(playerBox(ti,p,receptionPlayer,receptionRole,receiving),LinearLayout.LayoutParams(0,150,1f))
+                row.addView(playerBox(ti,p,receptionPlayer,receptionRole,showReceptionFormation),LinearLayout.LayoutParams(0,150,1f))
             }
             court.addView(row)
         }
@@ -965,11 +970,18 @@ class MainActivity : AppCompatActivity() {
         gravity=Gravity.CENTER; textSize=14f; setTextColor(Color.BLACK); setPadding(4,4,4,4)
         background=GradientDrawable().apply { setColor(Color.argb(35,255,255,255)); setStroke(2,Color.WHITE) }
 
-        // Tap the actual receiver shown in P1/P6/P5. Reception statistics are for our team.
-        if (ti == 0 && receiving && overrideRole in arrayOf("ΑΚ1","ΑΚ2","Λ") && player != null) {
+        // The displayed receiver is tappable for either team.
+        // Our-team taps also feed the existing service/reception statistics.
+        if (receiving && overrideRole in arrayOf("ΑΚ1","ΑΚ2","Λ") && player != null) {
             isClickable=true
             setOnClickListener {
-                recordReception(player, overrideRole!!, teamRotation(0), pos in 1..3)
+                if (ti == 0) {
+                    recordReception(player, overrideRole!!, teamRotation(ti), pos in 1..3)
+                } else {
+                    receptionRecordedThisRally = true
+                    Toast.makeText(this@MainActivity, "Υποδοχή: ${player.name.takeIf { it.isNotBlank() } ?: overrideRole}", Toast.LENGTH_SHORT).show()
+                    showCourt()
+                }
             }
         }
     }
