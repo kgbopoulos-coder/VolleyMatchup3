@@ -3,6 +3,8 @@ package gr.volley.matchup2
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.content.Intent
+import android.net.Uri
 import android.text.Editable
 import android.text.Html
 import android.text.SpannableStringBuilder
@@ -53,6 +55,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var root: LinearLayout
     private lateinit var currentScroll: ScrollView
     private var currentScreen = "HOME"
+    private val exportTeamsRequest = 9101
+    private val importTeamsRequest = 9102
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -107,6 +111,59 @@ class MainActivity : AppCompatActivity() {
         root.addView(button("ROSTER — ΑΝΤΙΠΑΛΗ ΟΜΑΔΑ"){ teamIndex=1; showRoster() })
         root.addView(button("ΑΡΧΙΚΗ ΠΕΡΙΣΤΡΟΦΗ"){ showRotationSetup() })
         root.addView(button("ΓΗΠΕΔΟ"){ showCourt() })
+        root.addView(button("ΕΞΑΓΩΓΗ ΟΜΑΔΩΝ"){ exportTeams() })
+        root.addView(button("ΕΙΣΑΓΩΓΗ ΟΜΑΔΩΝ"){ importTeams() })
+    }
+
+    private fun exportTeams() {
+        val saved = prefs().getString("saved_teams","{}") ?: "{}"
+        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "application/json"
+            putExtra(Intent.EXTRA_TITLE, "VolleyMatchup2-teams-backup.json")
+        }
+        startActivityForResult(intent, exportTeamsRequest)
+    }
+
+    private fun importTeams() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "application/json"
+        }
+        startActivityForResult(intent, importTeamsRequest)
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (resultCode != RESULT_OK) return
+        val uri: Uri = data?.data ?: return
+        try {
+            when (requestCode) {
+                exportTeamsRequest -> {
+                    val saved = prefs().getString("saved_teams","{}") ?: "{}"
+                    contentResolver.openOutputStream(uri, "w")?.bufferedWriter()?.use { it.write(saved) }
+                    Toast.makeText(this,"Οι ομάδες εξήχθησαν",Toast.LENGTH_SHORT).show()
+                }
+                importTeamsRequest -> {
+                    val text = contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: return
+                    val imported = JSONObject(text)
+                    val existing = try { JSONObject(prefs().getString("saved_teams","{}") ?: "{}") } catch (_:Exception) { JSONObject() }
+                    val keys = imported.keys()
+                    var count = 0
+                    while (keys.hasNext()) {
+                        val key = keys.next()
+                        existing.put(key, imported.get(key))
+                        count++
+                    }
+                    prefs().edit().putString("saved_teams",existing.toString()).apply()
+                    Toast.makeText(this,"Εισήχθησαν $count ομάδες",Toast.LENGTH_LONG).show()
+                    showHome()
+                }
+            }
+        } catch (e: Exception) {
+            Toast.makeText(this,"Σφάλμα backup: ${e.message ?: "άγνωστο"}",Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun showRoster() {
