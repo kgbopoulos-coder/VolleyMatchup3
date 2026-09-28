@@ -533,6 +533,8 @@ class MainActivity : AppCompatActivity() {
         selected[ti][0] = old[1] // P2 -> P1
     }
 
+    private var pendingReception: Triple<Player?, String, Int>? = null
+
     private fun addReceptionView() {
         root.addView(TextView(this).apply {
             text = "${teams[0].name} — ΥΠΟΔΟΧΗ"
@@ -541,16 +543,7 @@ class MainActivity : AppCompatActivity() {
             setPadding(0,8,0,8)
         })
 
-        val backMiddle = (0..5)
-            .mapNotNull { pos ->
-                val ix = selected[0][pos]
-                if (ix in 0..13) teams[0].roster[ix] to pos else null
-            }
-            .firstOrNull { (player, pos) ->
-                player.role in arrayOf("Κ1", "Κ2") && pos in arrayOf(0,4,5)
-            }?.first
         val libero = teams[0].roster.firstOrNull { it.role == "Λ" }
-
         val setterPos = (0..5).firstOrNull { pos ->
             val ix = selected[0][pos]
             ix in 0..13 && teams[0].roster[ix].role == "Π"
@@ -568,57 +561,37 @@ class MainActivity : AppCompatActivity() {
         }
 
         root.addView(TextView(this).apply {
-            text = "ΠΕΡΙΣΤΡΟΦΗ P$rotation — Πάτησε τη θέση της υποδοχής"
+            text = "ΠΕΡΙΣΤΡΟΦΗ P$rotation — Επίλεξε υποδοχέα και μετά ΜΠΡΟΣΤΑ / ΠΙΣΩ"
             gravity = Gravity.CENTER
             textSize = 15f
             setPadding(0,0,0,8)
         })
 
-        val court = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(8,8,8,8)
-            background = GradientDrawable().apply {
-                setColor(Color.rgb(238,177,104))
-                setStroke(3,Color.WHITE)
-            }
+        val receivers = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
         }
-
-        // Each reception lane belongs to the same receiver in front and back:
-        // P1/P2, P6/P3, P5/P4.
-        val positionRows = arrayOf(
-            arrayOf("P1","P6","P5"),
-            arrayOf("P2","P3","P4")
-        )
-
-        positionRows.forEach { positions ->
-            val row = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER
-            }
-            positions.forEachIndexed { column, courtPos ->
-                val role = receiverRoles[column]
-                val player = if(role == "Λ") libero
-                             else teams[0].roster.firstOrNull { it.role == role }
-                row.addView(Button(this).apply {
-                    text = buildString {
-                        append(courtPos)
-                        append("\n")
-                        if(player != null && player.name.isNotBlank()) append(player.name) else append(role)
-                        append("\n[")
-                        if(role == "Λ" && backMiddle != null) append("Λ αντί ${backMiddle.role}")
-                        else append(role)
-                        append("]")
-                    }
-                    textSize = 12f
-                    isAllCaps = false
-                    setOnClickListener {
-                        recordReception(player, role, rotation, courtPos)
-                    }
-                }, LinearLayout.LayoutParams(0,150,1f))
-            }
-            court.addView(row)
+        receiverRoles.forEach { role ->
+            val player = if(role == "Λ") libero else teams[0].roster.firstOrNull { it.role == role }
+            receivers.addView(Button(this).apply {
+                text = player?.name?.takeIf { it.isNotBlank() } ?: role
+                textSize = 12f
+                isAllCaps = false
+                setOnClickListener {
+                    pendingReception = Triple(player, role, rotation)
+                    Toast.makeText(this@MainActivity, "Επίλεξε ΜΠΡΟΣΤΑ ή ΠΙΣΩ", Toast.LENGTH_SHORT).show()
+                }
+            }, LinearLayout.LayoutParams(0,150,1f))
         }
-        root.addView(court)
+        root.addView(receivers)
+
+        val depthRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+        depthRow.addView(button("ΜΠΡΟΣΤΑ") { recordPendingReception(true) }, LinearLayout.LayoutParams(0,-2,1f))
+        depthRow.addView(button("ΠΙΣΩ") { recordPendingReception(false) }, LinearLayout.LayoutParams(0,-2,1f))
+        root.addView(depthRow)
 
         root.addView(TextView(this).apply {
             text = buildString {
@@ -638,7 +611,17 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
-    private fun recordReception(player: Player?, role: String, rotation: Int, courtPos: String) {
+    private fun recordPendingReception(front: Boolean) {
+        val pending = pendingReception
+        if (pending == null) {
+            Toast.makeText(this, "Επίλεξε πρώτα υποδοχέα", Toast.LENGTH_SHORT).show()
+            return
+        }
+        recordReception(pending.first, pending.second, pending.third, front)
+        pendingReception = null
+    }
+
+    private fun recordReception(player: Player?, role: String, rotation: Int, front: Boolean) {
         receptionCounts[role] = (receptionCounts[role] ?: 0) + 1
         matchReceptionCounts[role] = (matchReceptionCounts[role] ?: 0) + 1
         val server = currentOpponentServer()
@@ -652,26 +635,24 @@ class MainActivity : AppCompatActivity() {
         val key = "P$rotation|$role"
         receptionCountsByRotation[key] = (receptionCountsByRotation[key] ?: 0) + 1
 
-        receptionPositionCounts[courtPos] = (receptionPositionCounts[courtPos] ?: 0) + 1
-        if (courtPos in arrayOf("P1","P6","P5")) {
-            receptionBackCounts[role] = (receptionBackCounts[role] ?: 0) + 1
-            matchReceptionBackCounts[role] = (matchReceptionBackCounts[role] ?: 0) + 1
-            if (serverKey != null) {
-                val map = serverPreviousBackCounts.getOrPut(serverKey) { mutableMapOf() }
-                map[role] = (map[role] ?: 0) + 1
-            }
-        } else if (courtPos in arrayOf("P2","P3","P4")) {
+        if (front) {
             receptionFrontCounts[role] = (receptionFrontCounts[role] ?: 0) + 1
             matchReceptionFrontCounts[role] = (matchReceptionFrontCounts[role] ?: 0) + 1
             if (serverKey != null) {
                 val map = serverPreviousFrontCounts.getOrPut(serverKey) { mutableMapOf() }
                 map[role] = (map[role] ?: 0) + 1
             }
+        } else {
+            receptionBackCounts[role] = (receptionBackCounts[role] ?: 0) + 1
+            matchReceptionBackCounts[role] = (matchReceptionBackCounts[role] ?: 0) + 1
+            if (serverKey != null) {
+                val map = serverPreviousBackCounts.getOrPut(serverKey) { mutableMapOf() }
+                map[role] = (map[role] ?: 0) + 1
+            }
         }
 
         val who = player?.name?.takeIf { it.isNotBlank() } ?: role
-        val zone = if (courtPos in arrayOf("P1","P6","P5")) "πίσω" else "μπροστά"
-        Toast.makeText(this, "+1 υποδοχή: $who ($zone)", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "+1 υποδοχή: $who (${if(front) "μπροστά" else "πίσω"})", Toast.LENGTH_SHORT).show()
         showCourt()
     }
 
