@@ -647,9 +647,11 @@ class MainActivity : AppCompatActivity() {
                 libero
             } else {
                 selected[0]
-                    .mapNotNull { ix -> teams[0].roster.getOrNull(ix) }
-                    .firstOrNull { it.role == role }
-                    ?: teams[0].roster.firstOrNull { it.role == role }
+                    .asSequence()
+                    .map { ix -> teams[0].roster.getOrNull(ix) }
+                    .filterNotNull()
+                    .firstOrNull { player -> player.role == role }
+                    ?: teams[0].roster.firstOrNull { player -> player.role == role }
             }
             receivers.addView(Button(this).apply {
                 text = if (player != null && player.name.isNotBlank()) {
