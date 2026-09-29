@@ -836,6 +836,22 @@ class MainActivity : AppCompatActivity() {
         currentScreen = "PATTERN"
         base("ΜΟΤΙΒΟ SERVICE")
         val total = receptionCounts.values.sum()
+        val servingPlayerIndex = selected[servingTeam][0]
+        val servingPlayer = if (servingPlayerIndex in 0..13) teams[servingTeam].roster[servingPlayerIndex] else null
+        val servingName = servingPlayer?.name?.takeIf { it.isNotBlank() } ?: "—"
+        val servingRole = servingPlayer?.role?.takeIf { it.isNotBlank() }
+        root.addView(TextView(this).apply {
+            text = buildString {
+                append("🏐 SERVICE: ")
+                append(servingName)
+                if (servingRole != null) append(" ($servingRole)")
+                append(" — ")
+                append(teams[servingTeam].name)
+            }
+            gravity = Gravity.CENTER
+            textSize = 18f
+            setPadding(0,0,0,12)
+        })
         if (total == 0) {
             root.addView(TextView(this).apply {
                 text = "Δεν υπάρχουν ακόμη καταγεγραμμένες υποδοχές."
