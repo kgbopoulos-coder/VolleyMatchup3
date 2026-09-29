@@ -1002,7 +1002,17 @@ class MainActivity : AppCompatActivity() {
                 // Receiving team goes to attack only after reception is recorded.
                 val attackRole = if (!receiving || receptionRecordedThisRally) attackRoleAt(rotation, p) else null
                 // Keep the special P1 serving variation as the only override.
-                val displayRole = receptionRole ?: servingP1Role ?: attackRole
+                val baseDisplayRole = receptionRole ?: servingP1Role ?: attackRole
+                // Libero substitution rule:
+                // in back-row positions P1/P6/P5, K1 or K2 is replaced by libero,
+                // except while that middle is actually serving from P1.
+                val backRow = p == 0 || p == 5 || p == 4
+                val middleServing = !receiving && p == 0 && baseDisplayRole in arrayOf("Κ1","Κ2")
+                val displayRole = if (
+                    backRow &&
+                    baseDisplayRole in arrayOf("Κ1","Κ2") &&
+                    !middleServing
+                ) "Λ" else baseDisplayRole
                 val displayPlayer = if (displayRole == "Λ") libero else if (displayRole != null) {
                     teams[ti].roster.firstOrNull { it.role == displayRole }
                 } else null
