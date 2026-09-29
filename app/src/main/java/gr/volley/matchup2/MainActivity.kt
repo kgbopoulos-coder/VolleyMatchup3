@@ -40,6 +40,7 @@ class MainActivity : AppCompatActivity() {
     private var lastAttackerPosition: String? = null
     private var lastTouchedTeam: Int? = null
     private var lastTouchedPos: Int? = null
+    private var lastTouchWasBlock = false
     private val initialRotation = intArrayOf(1, 1)
     // Explicit logical rotation labels. Order is P1 -> P6 -> P5 -> P4 -> P3 -> P2 -> P1.
     private val currentRotation = intArrayOf(1, 1)
@@ -627,7 +628,7 @@ class MainActivity : AppCompatActivity() {
             textSize = 15f
             setPadding(0,6,0,6)
         })
-        root.addView(button("ΜΠΛΟΚ") {
+        root.addView(button(if (lastTouchWasBlock) "🏐  ΜΠΛΟΚ" else "ΜΠΛΟΚ") {
             val team = lastAttackerTeam
             if (team == null) {
                 Toast.makeText(this, "Επίλεξε πρώτα επιτιθέμενη", Toast.LENGTH_SHORT).show()
@@ -635,6 +636,9 @@ class MainActivity : AppCompatActivity() {
                 // Block touch sends the ball back to the attacking side.
                 rallyBallTeam = team
                 lastActionWasBlock = true
+                lastTouchWasBlock = true
+                lastTouchedTeam = null
+                lastTouchedPos = null
                 Toast.makeText(this, "ΜΠΛΟΚ — η μπάλα παραμένει στην ${teams[team].name}", Toast.LENGTH_SHORT).show()
                 showCourt()
             }
@@ -730,6 +734,7 @@ class MainActivity : AppCompatActivity() {
         lastAttackerPosition = null
         lastTouchedTeam = null
         lastTouchedPos = null
+        lastTouchWasBlock = false
         showCourt()
     }
 
@@ -920,8 +925,6 @@ class MainActivity : AppCompatActivity() {
 
         val who = player?.name?.takeIf { it.isNotBlank() } ?: role
         receptionRecordedThisRally = true
-        lastTouchedTeam = ti
-        lastTouchedPos = pos
         Toast.makeText(this, "+1 υποδοχή: $who", Toast.LENGTH_SHORT).show()
         showCourt()
     }
@@ -1307,6 +1310,7 @@ class MainActivity : AppCompatActivity() {
                 val who = player.name.takeIf { it.isNotBlank() } ?: (role ?: "Παίκτρια")
                 lastTouchedTeam = ti
                 lastTouchedPos = pos
+                lastTouchWasBlock = false
                 if (lastAttackerTeam != null && lastAttackerTeam != ti && rallyBallTeam == ti) {
                     // The defender's court position IS the attack direction.
                     // If the previous attacker was an opponent, record that target now.
@@ -1352,11 +1356,13 @@ class MainActivity : AppCompatActivity() {
                         if (ti == 0) {
                             lastTouchedTeam = ti
                             lastTouchedPos = pos
+                            lastTouchWasBlock = false
                             recordReception(player, overrideRole!!, teamRotation(ti), true)
                         } else {
                             receptionRecordedThisRally = true
                             lastTouchedTeam = ti
                             lastTouchedPos = pos
+                            lastTouchWasBlock = false
                             Toast.makeText(this@MainActivity, "Υποδοχή: $who — ΜΠΡΟΣΤΑ", Toast.LENGTH_SHORT).show()
                             showCourt()
                         }
@@ -1365,11 +1371,13 @@ class MainActivity : AppCompatActivity() {
                         if (ti == 0) {
                             lastTouchedTeam = ti
                             lastTouchedPos = pos
+                            lastTouchWasBlock = false
                             recordReception(player, overrideRole!!, teamRotation(ti), false)
                         } else {
                             receptionRecordedThisRally = true
                             lastTouchedTeam = ti
                             lastTouchedPos = pos
+                            lastTouchWasBlock = false
                             Toast.makeText(this@MainActivity, "Υποδοχή: $who — ΠΙΣΩ", Toast.LENGTH_SHORT).show()
                             showCourt()
                         }
