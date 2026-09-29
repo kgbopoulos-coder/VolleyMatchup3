@@ -959,8 +959,11 @@ class MainActivity : AppCompatActivity() {
         // opponent: P1 P6 P5 / P2 P3 P4
         // ours (180°): P4 P3 P2 / P5 P6 P1
         val rows = if (opponent) {
-            arrayOf(intArrayOf(0,5,4), intArrayOf(1,2,3))
+            // Opponent is above the net: back row first, front row next to the net.
+            // Mirror the court so P1 is top-right from our viewing perspective.
+            arrayOf(intArrayOf(4,5,0), intArrayOf(3,2,1))
         } else {
+            // Our team is below the net: front row next to the net, back row below.
             arrayOf(intArrayOf(3,2,1), intArrayOf(4,5,0))
         }
 
