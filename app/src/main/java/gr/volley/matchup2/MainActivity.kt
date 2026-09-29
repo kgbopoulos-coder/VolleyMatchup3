@@ -922,20 +922,18 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun attackRoleAt(rotation: Int, pos: Int): String? {
-        // Offensive base positions by rotation. P1..P6 rotate clockwise from the saved P1.
-        // In the back row, a middle is displayed as libero; front-row middle remains K1/K2.
-        val base = arrayOf("Π","ΑΚ1","Κ1","Δ","ΑΚ2","Κ2")
-        val shift = (rotation - 1).coerceIn(0,5)
-        val rolesAtPos = Array(6) { "" }
-        for (originalPos in 0..5) {
-            var newPos = originalPos
-            repeat(shift) {
-                newPos = when(newPos) { 0->5; 5->4; 4->3; 3->2; 2->1; else->0 }
-            }
-            rolesAtPos[newPos] = base[originalPos]
+        // Exact attack formations supplied by the coach.
+        // Array order is physical court position P1,P2,P3,P4,P5,P6.
+        val formation = when (rotation) {
+            1 -> arrayOf("Π","ΑΚ1","Κ2","Δ","Λ","ΑΚ2")
+            6 -> arrayOf("Π","Δ","Κ2","ΑΚ2","Λ","ΑΚ1")
+            5 -> arrayOf("Π","Δ","Κ1","ΑΚ2","Κ2","ΑΚ1")
+            4 -> arrayOf("Δ","Π","Κ1","ΑΚ2","Λ","ΑΚ1")
+            3 -> arrayOf("Δ","Π","Κ1","ΑΚ1","Λ","ΑΚ2")
+            2 -> arrayOf("Δ","Π","Κ2","ΑΚ1","Κ1","ΑΚ2")
+            else -> return null
         }
-        val role = rolesAtPos[pos]
-        return if (pos in arrayOf(0,4,5) && role in arrayOf("Κ1","Κ2")) "Λ" else role
+        return formation[pos]
     }
 
     private fun teamRotation(ti: Int): Int = currentRotation[ti]
