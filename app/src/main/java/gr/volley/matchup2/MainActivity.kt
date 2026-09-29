@@ -33,6 +33,10 @@ class MainActivity : AppCompatActivity() {
     private var teamIndex = 0
     private var servingTeam = 0 // 0 = δική μας, 1 = αντίπαλη
     private var receptionRecordedThisRally = false
+    private var rallyBallTeam: Int? = null
+    private var lastActionWasBlock = false
+    private var lastAttackerTeam: Int? = null
+    private var lastAttackerName: String? = null
     private val initialRotation = intArrayOf(1, 1)
     // Explicit logical rotation labels. Order is P1 -> P6 -> P5 -> P4 -> P3 -> P2 -> P1.
     private val currentRotation = intArrayOf(1, 1)
@@ -516,6 +520,18 @@ class MainActivity : AppCompatActivity() {
             textSize = 15f
             setPadding(0,6,0,6)
         })
+        root.addView(button("ΜΠΛΟΚ") {
+            val team = lastAttackerTeam
+            if (team == null) {
+                Toast.makeText(this, "Επίλεξε πρώτα επιτιθέμενη", Toast.LENGTH_SHORT).show()
+            } else {
+                // Block touch sends the ball back to the attacking side.
+                rallyBallTeam = team
+                lastActionWasBlock = true
+                Toast.makeText(this, "ΜΠΛΟΚ — η μπάλα παραμένει στην ${teams[team].name}", Toast.LENGTH_SHORT).show()
+                showCourt()
+            }
+        })
 
         // Our team is always shown as a normal six-player court, just like the opponent.
         // Names and roles come from the active rotation and move automatically with rotation.
@@ -599,6 +615,10 @@ class MainActivity : AppCompatActivity() {
         }
         // Every new rally starts with the receiving team in reception formation.
         receptionRecordedThisRally = false
+        rallyBallTeam = null
+        lastActionWasBlock = false
+        lastAttackerTeam = null
+        lastAttackerName = null
         showCourt()
     }
 
@@ -1103,6 +1123,27 @@ class MainActivity : AppCompatActivity() {
         }
         gravity=Gravity.CENTER; textSize=14f; setTextColor(Color.BLACK); setPadding(4,4,4,4)
         background=GradientDrawable().apply { setColor(Color.argb(35,255,255,255)); setStroke(2,Color.WHITE) }
+
+        // After reception, court players act as rally controls.
+        if (!receiving && receptionRecordedThisRally && player != null) {
+            isClickable = true
+            setOnClickListener {
+                val who = player.name.takeIf { it.isNotBlank() } ?: (role ?: "Παίκτρια")
+                if (rallyBallTeam == null || rallyBallTeam == ti) {
+                    lastAttackerTeam = ti
+                    lastAttackerName = who
+                    rallyBallTeam = 1 - ti
+                    lastActionWasBlock = false
+                    Toast.makeText(this@MainActivity, "ΕΠΙΘΕΣΗ: $who", Toast.LENGTH_SHORT).show()
+                } else {
+                    // Defensive contact gives this team the next attack.
+                    rallyBallTeam = ti
+                    lastActionWasBlock = false
+                    Toast.makeText(this@MainActivity, "ΑΜΥΝΑ: $who", Toast.LENGTH_SHORT).show()
+                }
+                showCourt()
+            }
+        }
 
         // Tap a receiver, then choose whether the serve target was FRONT or BACK.
         // Only after that choice is the reception recorded and the team moves to attack.
