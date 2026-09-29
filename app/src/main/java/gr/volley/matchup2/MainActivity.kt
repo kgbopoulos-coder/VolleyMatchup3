@@ -1129,17 +1129,21 @@ class MainActivity : AppCompatActivity() {
             isClickable = true
             setOnClickListener {
                 val who = player.name.takeIf { it.isNotBlank() } ?: (role ?: "Παίκτρια")
-                if (rallyBallTeam == null || rallyBallTeam == ti) {
+                if (lastAttackerTeam != null && lastAttackerTeam != ti && rallyBallTeam == ti) {
+                    // The opponent has just attacked: this touch is DEFENSE.
+                    // After the defensive contact this team keeps the ball and can attack next.
+                    rallyBallTeam = ti
+                    lastAttackerTeam = null
+                    lastAttackerName = null
+                    lastActionWasBlock = false
+                    Toast.makeText(this@MainActivity, "ΑΜΥΝΑ: $who", Toast.LENGTH_SHORT).show()
+                } else {
+                    // This team has possession: this touch is ATTACK.
                     lastAttackerTeam = ti
                     lastAttackerName = who
                     rallyBallTeam = 1 - ti
                     lastActionWasBlock = false
                     Toast.makeText(this@MainActivity, "ΕΠΙΘΕΣΗ: $who", Toast.LENGTH_SHORT).show()
-                } else {
-                    // Defensive contact gives this team the next attack.
-                    rallyBallTeam = ti
-                    lastActionWasBlock = false
-                    Toast.makeText(this@MainActivity, "ΑΜΥΝΑ: $who", Toast.LENGTH_SHORT).show()
                 }
                 showCourt()
             }
