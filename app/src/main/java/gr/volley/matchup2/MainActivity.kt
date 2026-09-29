@@ -916,6 +916,30 @@ class MainActivity : AppCompatActivity() {
             val counts = arrayOf("ΑΚ1","ΑΚ2","Λ").associateWith { role ->
                 receptionCountsByRotation["P$rotation|$role"] ?: 0
             }
+            // Opponent server for this rotation, derived from the saved P1 lineup
+            // using the exact P1 -> P6 -> P5 -> P4 -> P3 -> P2 sequence.
+            val serverSteps = when (rotation) {
+                1 -> 0
+                6 -> 1
+                5 -> 2
+                4 -> 3
+                3 -> 4
+                2 -> 5
+                else -> 0
+            }
+            val serverLineup = p1Formation[1].clone()
+            repeat(serverSteps) {
+                val oldLineup = serverLineup.clone()
+                serverLineup[5] = oldLineup[0]
+                serverLineup[4] = oldLineup[5]
+                serverLineup[3] = oldLineup[4]
+                serverLineup[2] = oldLineup[3]
+                serverLineup[1] = oldLineup[2]
+                serverLineup[0] = oldLineup[1]
+            }
+            val serverIx = serverLineup[0]
+            val serverPlayer = teams[1].roster.getOrNull(serverIx)
+            val serverName = serverPlayer?.name?.takeIf { it.isNotBlank() } ?: "—"
             val rotTotal = counts.values.sum()
             val maxInRotation = counts.values.maxOrNull() ?: 0
             val detail = if (rotTotal == 0) "χωρίς καταγραφή" else
@@ -929,8 +953,8 @@ class MainActivity : AppCompatActivity() {
                     if (maxInRotation > 0 && n == maxInRotation) "<font color='#D00000'><b>$row</b></font>" else row
                 }
             root.addView(TextView(this).apply {
-                text = if (rotTotal == 0) "P$rotation: $detail"
-                else Html.fromHtml("<b>P$rotation:</b> $detail", Html.FROM_HTML_MODE_LEGACY)
+                text = if (rotTotal == 0) "P$rotation — SERVICE: $serverName: $detail"
+                else Html.fromHtml("<b>P$rotation — SERVICE: $serverName:</b> $detail", Html.FROM_HTML_MODE_LEGACY)
                 textSize = 15f
                 setPadding(0,5,0,5)
             })
