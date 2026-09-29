@@ -972,6 +972,9 @@ class MainActivity : AppCompatActivity() {
                 // When receiving, P1/P6/P5 show the agreed reception formation.
                 val receptionIndex = when(p) { 0 -> 0; 5 -> 1; 4 -> 2; else -> -1 }
                 val receptionRole = if (showReceptionFormation && receptionIndex >= 0) reception[receptionIndex] else null
+                // During reception show ONLY the three receivers (AK1, AK2, libero).
+                // All other court cells stay empty until reception is recorded.
+                val hideDuringReception = showReceptionFormation && receptionIndex < 0
                 // Special serving formation only for rotation P1:
                 // P1=Π, P6=ΑΚ2, P5=Λ, P4=ΑΚ1, P3=Κ2, P2=Δ.
                 val servingP1Role = if (!receiving && rotation == 1) {
@@ -991,13 +994,23 @@ class MainActivity : AppCompatActivity() {
                     teams[ti].roster.firstOrNull { it.role == displayRole }
                 } else null
                 row.addView(
-                    playerBox(ti,p,displayPlayer,displayRole,showReceptionFormation),
+                    if (hideDuringReception) emptyCourtBox() else playerBox(ti,p,displayPlayer,displayRole,showReceptionFormation),
                     LinearLayout.LayoutParams(0,150,1f)
                 )
             }
             court.addView(row)
         }
         root.addView(court)
+    }
+
+    private fun emptyCourtBox() = TextView(this).apply {
+        text = ""
+        gravity = Gravity.CENTER
+        setPadding(4,4,4,4)
+        background = GradientDrawable().apply {
+            setColor(Color.argb(35,255,255,255))
+            setStroke(2,Color.WHITE)
+        }
     }
 
     private fun playerBox(
