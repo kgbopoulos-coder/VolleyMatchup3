@@ -904,7 +904,12 @@ class MainActivity : AppCompatActivity() {
             val maxInRotation = counts.values.maxOrNull() ?: 0
             val detail = if (rotTotal == 0) "χωρίς καταγραφή" else
                 counts.entries.joinToString(" — ") { (role,n) ->
-                    val row = "$role $n (${((n * 100.0) / rotTotal).toInt()}%)"
+                    val playerName = teams[0].roster
+                        .firstOrNull { it.role == role }
+                        ?.name
+                        ?.takeIf { it.isNotBlank() }
+                        ?: role
+                    val row = "$playerName ($role) $n (${((n * 100.0) / rotTotal).toInt()}%)"
                     if (maxInRotation > 0 && n == maxInRotation) "<font color='#D00000'><b>$row</b></font>" else row
                 }
             root.addView(TextView(this).apply {
