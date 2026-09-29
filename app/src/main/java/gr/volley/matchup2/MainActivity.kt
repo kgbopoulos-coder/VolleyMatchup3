@@ -163,10 +163,12 @@ class MainActivity : AppCompatActivity() {
             content.removeAllViews()
             fun side(title:String, attackTeam:Int, attackRot:Int, blockTeam:Int, blockRot:Int) {
                 content.addView(TextView(this).apply { text=title; textSize=18f; gravity=Gravity.CENTER; setPadding(0,18,0,8) })
-                val atk=lineupForRotation(attackTeam,attackRot)
-                val blk=lineupForRotation(blockTeam,blockRot)
                 val totals=linkedMapOf<String,Int>()
-                fun player(t:Int, ix:Int):Player? = if(ix in 0..13) teams[t].roster[ix] else null
+                fun attackPlayer(t:Int, rotation:Int, pos:Int):Player? {
+                    val role = attackRoleAt(rotation,pos) ?: return null
+                    // MATCHUP always uses the exact ATTACK formation, not the raw rotational lineup.
+                    return teams[t].roster.firstOrNull { it.role == role }
+                }
                 fun label(p:Player?):String = p?.let { (it.name.ifBlank{"—"})+" ("+(it.role.ifBlank{"—"})+")" } ?: "—"
                 fun addTotal(p:Player?) { if(p!=null) { val k=label(p); totals[k]=(totals[k]?:0)+1 } }
                 // P4 attacks against P2 + middle blocker (P3).
@@ -176,8 +178,8 @@ class MainActivity : AppCompatActivity() {
                     Triple(1, intArrayOf(3,2), "P2")
                 )
                 matchups.forEach { (attackPos,blockPos,titlePos) ->
-                    val a=player(attackTeam,atk[attackPos])
-                    val blockers=blockPos.map { player(blockTeam,blk[it]) }
+                    val a=attackPlayer(attackTeam,attackRot,attackPos)
+                    val blockers=blockPos.map { attackPlayer(blockTeam,blockRot,it) }
                     blockers.forEach { addTotal(it) }
                     content.addView(TextView(this@MainActivity).apply {
                         text="$titlePos — ${label(a)}\n→ "+blockers.joinToString(" + ") { label(it) }
