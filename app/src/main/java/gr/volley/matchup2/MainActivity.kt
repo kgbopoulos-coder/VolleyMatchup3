@@ -162,38 +162,57 @@ class MainActivity : AppCompatActivity() {
 
         fun render() {
             content.removeAllViews()
-            fun side(title:String, attackTeam:Int, attackRot:Int, blockTeam:Int, blockRot:Int) {
-                content.addView(TextView(this).apply { text=title; textSize=18f; gravity=Gravity.CENTER; setPadding(0,18,0,8) })
-                val totals=linkedMapOf<String,Int>()
-                fun attackPlayer(t:Int, rotation:Int, pos:Int):Player? {
-                    val role = attackRoleAt(rotation,pos) ?: return null
-                    // MATCHUP always uses the exact ATTACK formation, not the raw rotational lineup.
-                    return teams[t].roster.firstOrNull { it.role == role }
+            val rotOrder = intArrayOf(1,6,5,4,3,2)
+            fun nextRot(r:Int, steps:Int):Int {
+                val ix=rotOrder.indexOf(r)
+                return rotOrder[(ix+steps)%6]
+            }
+            fun attackPlayer(t:Int, rotation:Int, pos:Int):Player? {
+                val role=attackRoleAt(rotation,pos) ?: return null
+                return teams[t].roster.firstOrNull { it.role==role }
+            }
+            fun label(p:Player?):String = p?.let { (it.name.ifBlank{"—"})+" ("+(it.role.ifBlank{"—"})+")" } ?: "—"
+
+            fun side(title:String, attackTeam:Int, startAttackRot:Int, blockTeam:Int, startBlockRot:Int) {
+                content.addView(TextView(this).apply {
+                    text=title; textSize=18f; gravity=Gravity.CENTER; setPadding(0,18,0,8)
+                })
+
+                // Player-centric MATCHUP: starting from the selected rotations, follow both teams
+                // synchronously through the six rotations. For each attacker, total only the
+                // rotations in which she is in the front attacking zone P4/P3/P2.
+                val playerTotals=linkedMapOf<String,LinkedHashMap<String,Int>>()
+                for(step in 0 until 6) {
+                    val ar=nextRot(startAttackRot,step)
+                    val br=nextRot(startBlockRot,step)
+                    for(attackPos in intArrayOf(3,2,1)) {
+                        val attacker=attackPlayer(attackTeam,ar,attackPos) ?: continue
+                        val attackerKey=label(attacker)
+                        val totals=playerTotals.getOrPut(attackerKey){ linkedMapOf() }
+
+                        val blockPositions = when(attackPos) {
+                            3 -> intArrayOf(1,2) // P4 -> P2 + middle
+                            2 -> intArrayOf(2)   // middle -> middle
+                            1 -> intArrayOf(3,2) // P2 -> P4 + middle
+                            else -> intArrayOf()
+                        }
+                        blockPositions.forEach { bp ->
+                            val blocker=attackPlayer(blockTeam,br,bp) ?: return@forEach
+                            val blockerKey=label(blocker)
+                            totals[blockerKey]=(totals[blockerKey]?:0)+1
+                        }
+                    }
                 }
-                fun label(p:Player?):String = p?.let { (it.name.ifBlank{"—"})+" ("+(it.role.ifBlank{"—"})+")" } ?: "—"
-                fun addTotal(p:Player?) { if(p!=null) { val k=label(p); totals[k]=(totals[k]?:0)+1 } }
-                // P4 attacks against P2 + middle blocker (P3).
-                val matchups = arrayOf(
-                    Triple(3, intArrayOf(1,2), "P4"),
-                    Triple(2, intArrayOf(2), "P3"),
-                    Triple(1, intArrayOf(3,2), "P2")
-                )
-                matchups.forEach { (attackPos,blockPos,titlePos) ->
-                    val a=attackPlayer(attackTeam,attackRot,attackPos)
-                    val blockers=blockPos.map { attackPlayer(blockTeam,blockRot,it) }
-                    blockers.forEach { addTotal(it) }
+
+                playerTotals.forEach { (attacker,totals) ->
                     content.addView(TextView(this@MainActivity).apply {
-                        text="$titlePos — ${label(a)}\n→ "+blockers.joinToString(" + ") { label(it) }
-                        textSize=15f; setPadding(0,7,0,7)
+                        text=attacker+"\n→ "+totals.entries.joinToString("   ") { "${it.key} ×${it.value}" }
+                        textSize=16f; setPadding(0,8,0,8)
                     })
                 }
-                content.addView(TextView(this@MainActivity).apply {
-                    text="ΣΥΝΟΛΟ ΑΠΕΝΑΝΤΙ ΜΠΛΟΚ\n"+totals.entries.joinToString("\n") { "${it.key} ×${it.value}" }
-                    textSize=16f; setPadding(0,10,0,12)
-                })
             }
-            side("${teams[0].name} — ΕΠΙΘΕΣΗ",0,ourRot,1,oppRot)
-            side("${teams[1].name} — ΕΠΙΘΕΣΗ",1,oppRot,0,ourRot)
+            side("${teams[0].name} — ΣΥΝΟΛΟ ΜΠΡΟΣΤΑ ΘΕΣΕΩΝ",0,ourRot,1,oppRot)
+            side("${teams[1].name} — ΣΥΝΟΛΟ ΜΠΡΟΣΤΑ ΘΕΣΕΩΝ",1,oppRot,0,ourRot)
         }
         val listener=object:AdapterView.OnItemSelectedListener {
             override fun onNothingSelected(parent:AdapterView<*>?) {}
