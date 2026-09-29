@@ -59,6 +59,8 @@ class MainActivity : AppCompatActivity() {
     private val serverPreviousBackCounts = mutableMapOf<String, MutableMap<String, Int>>()
     private val serverPreviousFrontCounts = mutableMapOf<String, MutableMap<String, Int>>()
     private val serverSetCounts = mutableMapOf<String, MutableMap<String, Int>>()
+    // Opponent attack pattern: rotation|attacker|attackPosition|targetPosition -> count
+    private val opponentAttackPattern = mutableMapOf<String, Int>()
     private lateinit var root: LinearLayout
     private lateinit var currentScroll: ScrollView
     private var currentScreen = "HOME"
@@ -74,7 +76,7 @@ class MainActivity : AppCompatActivity() {
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         when (currentScreen) {
-            "PATTERN" -> showCourt()
+            "PATTERN", "ATTACK_PATTERN" -> showCourt()
             "COURT", "ROSTER", "ROTATION" -> showHome()
             else -> AlertDialog.Builder(this)
                 .setTitle("Έξοδος")
@@ -540,6 +542,7 @@ class MainActivity : AppCompatActivity() {
         root.addView(button("ΠΟΝΤΟΣ ΔΙΚΟΣ ΜΑΣ") { pointWonBy(0) })
         root.addView(button("ΠΟΝΤΟΣ ΑΝΤΙΠΑΛΟΥ") { pointWonBy(1) })
         root.addView(button("ΜΟΤΙΒΟ SERVICE") { showServicePattern() })
+        root.addView(button("ΜΟΤΙΒΟ ΕΠΙΘΕΣΗΣ") { showAttackPattern() })
         root.addView(button("ΤΕΛΟΣ ΣΕΤ") { confirmEndSet() })
         root.addView(button("ΚΑΘΑΡΙΣΜΟΣ") { confirmClearMatch() })
         root.addView(button("ΠΙΣΩ"){showHome()})
@@ -983,6 +986,64 @@ class MainActivity : AppCompatActivity() {
         root.addView(button("ΠΙΣΩ"){ showCourt() })
     }
 
+    private fun showAttackPattern() {
+        currentScreen = "ATTACK_PATTERN"
+        base("ΜΟΤΙΒΟ ΕΠΙΘΕΣΗΣ")
+        if (opponentAttackPattern.isEmpty()) {
+            root.addView(TextView(this).apply {
+                text = "Δεν υπάρχουν ακόμη καταγεγραμμένες επιθέσεις αντιπάλου."
+                gravity = Gravity.CENTER
+                textSize = 16f
+                setPadding(0,20,0,20)
+            })
+            root.addView(button("ΠΙΣΩ") { showCourt() })
+            return
+        }
+
+        val rotationOrder = arrayOf(1,6,5,4,3,2)
+        rotationOrder.forEach { rotation ->
+            val entries = opponentAttackPattern.filterKeys { it.startsWith("$rotation|") }
+            if (entries.isNotEmpty()) {
+                root.addView(TextView(this).apply {
+                    text = "ΠΕΡΙΣΤΡΟΦΗ P$rotation"
+                    textSize = 18f
+                    gravity = Gravity.CENTER
+                    setPadding(0,18,0,8)
+                })
+                val grouped = entries.entries.groupBy {
+                    val parts = it.key.split("|")
+                    "${parts[1]}|${parts[2]}"
+                }
+                grouped.forEach { (attackerKey, attacks) ->
+                    val parts = attackerKey.split("|")
+                    val attacker = parts[0]
+                    val attackPos = parts[1]
+                    val targetCounts = mutableMapOf<String,Int>()
+                    attacks.forEach { e ->
+                        val target = e.key.split("|")[3]
+                        targetCounts[target] = (targetCounts[target] ?: 0) + e.value
+                    }
+                    val total = targetCounts.values.sum()
+                    val max = targetCounts.values.maxOrNull() ?: 0
+                    val detail = arrayOf("P1","P6","P5","P4","P3","P2")
+                        .filter { (targetCounts[it] ?: 0) > 0 }
+                        .joinToString(" — ") { target ->
+                            val n = targetCounts[target] ?: 0
+                            val pct = if (total == 0) 0 else (n * 100.0 / total).toInt()
+                            val row = "$target $n/$total ($pct%)"
+                            if (n == max && max > 0) "<font color='#D00000'><b>$row</b></font>" else row
+                        }
+                    root.addView(TextView(this).apply {
+                        text = Html.fromHtml("<b>$attacker ($attackPos)</b><br>$detail", Html.FROM_HTML_MODE_LEGACY)
+                        textSize = 15f
+                        setPadding(0,7,0,7)
+                    })
+                }
+            }
+        }
+        root.addView(button("ΠΙΣΩ") { showCourt() })
+    }
+
     private fun receptionRoles(rotation: Int): Array<String> = when(rotation) {
         1 -> arrayOf("ΑΚ1","Λ","ΑΚ2")
         2 -> arrayOf("Λ","ΑΚ2","ΑΚ1")
@@ -1141,9 +1202,32 @@ class MainActivity : AppCompatActivity() {
                     // This team has possession: this touch is ATTACK.
                     lastAttackerTeam = ti
                     lastAttackerName = who
-                    rallyBallTeam = 1 - ti
                     lastActionWasBlock = false
-                    Toast.makeText(this@MainActivity, "ΕΠΙΘΕΣΗ: $who", Toast.LENGTH_SHORT).show()
+                    if (ti == 1) {
+                        val attackPos = "P${pos + 1}"
+                        val rotation = teamRotation(1)
+                        val targets = arrayOf("P1","P6","P5","P4","P3","P2")
+                        AlertDialog.Builder(this@MainActivity)
+                            .setTitle("ΕΠΙΘΕΣΗ: $who ($attackPos)")
+                            .setMessage("Κατεύθυνση επίθεσης")
+                            .setItems(targets) { _, which ->
+                                val target = targets[which]
+                                val key = "$rotation|$who|$attackPos|$target"
+                                opponentAttackPattern[key] = (opponentAttackPattern[key] ?: 0) + 1
+                                rallyBallTeam = 0
+                                Toast.makeText(this@MainActivity, "ΕΠΙΘΕΣΗ: $who → $target", Toast.LENGTH_SHORT).show()
+                                showCourt()
+                            }
+                            .setNegativeButton("ΑΚΥΡΟ") { _, _ ->
+                                lastAttackerTeam = null
+                                lastAttackerName = null
+                            }
+                            .show()
+                    } else {
+                        rallyBallTeam = 1
+                        Toast.makeText(this@MainActivity, "ΕΠΙΘΕΣΗ: $who", Toast.LENGTH_SHORT).show()
+                        showCourt()
+                    }
                 }
                 showCourt()
             }
