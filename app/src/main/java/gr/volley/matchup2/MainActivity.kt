@@ -38,6 +38,8 @@ class MainActivity : AppCompatActivity() {
     private var lastAttackerTeam: Int? = null
     private var lastAttackerName: String? = null
     private var lastAttackerPosition: String? = null
+    private var lastTouchedTeam: Int? = null
+    private var lastTouchedPos: Int? = null
     private val initialRotation = intArrayOf(1, 1)
     // Explicit logical rotation labels. Order is P1 -> P6 -> P5 -> P4 -> P3 -> P2 -> P1.
     private val currentRotation = intArrayOf(1, 1)
@@ -726,6 +728,8 @@ class MainActivity : AppCompatActivity() {
         lastAttackerTeam = null
         lastAttackerName = null
         lastAttackerPosition = null
+        lastTouchedTeam = null
+        lastTouchedPos = null
         showCourt()
     }
 
@@ -916,6 +920,8 @@ class MainActivity : AppCompatActivity() {
 
         val who = player?.name?.takeIf { it.isNotBlank() } ?: role
         receptionRecordedThisRally = true
+        lastTouchedTeam = ti
+        lastTouchedPos = pos
         Toast.makeText(this, "+1 υποδοχή: $who", Toast.LENGTH_SHORT).show()
         showCourt()
     }
@@ -1277,8 +1283,12 @@ class MainActivity : AppCompatActivity() {
         val normalPlayer=if(ix in 0..13)teams[ti].roster[ix] else null
         val player=overridePlayer ?: normalPlayer
         val role=overrideRole ?: player?.role
+        val isLastTouched = lastTouchedTeam == ti && lastTouchedPos == pos
+        val isServerMarker = !receptionRecordedThisRally && servingTeam == ti && pos == 0
         text=buildString {
             append("P${pos+1}")
+            if (isServerMarker) append("   🏐")
+            else if (isLastTouched) append("  🏐")
             if(player!=null && player.name.isNotBlank()){
                 append("\n"); append(player.name)
                 if(!role.isNullOrBlank()) append("  [$role]")
@@ -1286,6 +1296,7 @@ class MainActivity : AppCompatActivity() {
                 append("\n"); append(role)
             }
         }
+        if (isServerMarker) textSize = 16f
         gravity=Gravity.CENTER; textSize=14f; setTextColor(Color.BLACK); setPadding(4,4,4,4)
         background=GradientDrawable().apply { setColor(Color.argb(35,255,255,255)); setStroke(2,Color.WHITE) }
 
@@ -1294,6 +1305,8 @@ class MainActivity : AppCompatActivity() {
             isClickable = true
             setOnClickListener {
                 val who = player.name.takeIf { it.isNotBlank() } ?: (role ?: "Παίκτρια")
+                lastTouchedTeam = ti
+                lastTouchedPos = pos
                 if (lastAttackerTeam != null && lastAttackerTeam != ti && rallyBallTeam == ti) {
                     // The defender's court position IS the attack direction.
                     // If the previous attacker was an opponent, record that target now.
@@ -1337,18 +1350,26 @@ class MainActivity : AppCompatActivity() {
                     .setMessage("Πού στόχευσε το service;")
                     .setPositiveButton("ΜΠΡΟΣΤΑ") { _, _ ->
                         if (ti == 0) {
+                            lastTouchedTeam = ti
+                            lastTouchedPos = pos
                             recordReception(player, overrideRole!!, teamRotation(ti), true)
                         } else {
                             receptionRecordedThisRally = true
+                            lastTouchedTeam = ti
+                            lastTouchedPos = pos
                             Toast.makeText(this@MainActivity, "Υποδοχή: $who — ΜΠΡΟΣΤΑ", Toast.LENGTH_SHORT).show()
                             showCourt()
                         }
                     }
                     .setNegativeButton("ΠΙΣΩ") { _, _ ->
                         if (ti == 0) {
+                            lastTouchedTeam = ti
+                            lastTouchedPos = pos
                             recordReception(player, overrideRole!!, teamRotation(ti), false)
                         } else {
                             receptionRecordedThisRally = true
+                            lastTouchedTeam = ti
+                            lastTouchedPos = pos
                             Toast.makeText(this@MainActivity, "Υποδοχή: $who — ΠΙΣΩ", Toast.LENGTH_SHORT).show()
                             showCourt()
                         }
