@@ -856,6 +856,7 @@ class MainActivity : AppCompatActivity() {
             setPadding(0,0,0,16)
         })
 
+        val overallMax = arrayOf("ΑΚ1","ΑΚ2","Λ").maxOf { receptionCounts[it] ?: 0 }
         arrayOf("ΑΚ1","ΑΚ2","Λ")
             .sortedByDescending { receptionCounts[it] ?: 0 }
             .forEach { role ->
@@ -865,7 +866,10 @@ class MainActivity : AppCompatActivity() {
             val back = receptionBackCounts[role] ?: 0
             val front = receptionFrontCounts[role] ?: 0
             root.addView(TextView(this).apply {
-                text = "$name: $n (${pct(n)}%) — πίσω $back — μπροστά $front"
+                val row = "$name: $n (${pct(n)}%) — πίσω $back — μπροστά $front"
+                text = if (overallMax > 0 && n == overallMax)
+                    Html.fromHtml("<font color='#D00000'><b>$row</b></font>", Html.FROM_HTML_MODE_LEGACY)
+                else row
                 textSize = 16f
                 setPadding(0,8,0,8)
             })
@@ -897,12 +901,15 @@ class MainActivity : AppCompatActivity() {
                 receptionCountsByRotation["P$rotation|$role"] ?: 0
             }
             val rotTotal = counts.values.sum()
+            val maxInRotation = counts.values.maxOrNull() ?: 0
             val detail = if (rotTotal == 0) "χωρίς καταγραφή" else
                 counts.entries.joinToString(" — ") { (role,n) ->
-                    "$role $n (${((n * 100.0) / rotTotal).toInt()}%)"
+                    val row = "$role $n (${((n * 100.0) / rotTotal).toInt()}%)"
+                    if (maxInRotation > 0 && n == maxInRotation) "<font color='#D00000'><b>$row</b></font>" else row
                 }
             root.addView(TextView(this).apply {
-                text = "P$rotation: $detail"
+                text = if (rotTotal == 0) "P$rotation: $detail"
+                else Html.fromHtml("<b>P$rotation:</b> $detail", Html.FROM_HTML_MODE_LEGACY)
                 textSize = 15f
                 setPadding(0,5,0,5)
             })
