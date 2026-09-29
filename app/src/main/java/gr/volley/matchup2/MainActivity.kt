@@ -986,7 +986,10 @@ class MainActivity : AppCompatActivity() {
                         else -> null
                     }
                 } else null
-                val attackRole = if (receiving && receptionRecordedThisRally) attackRoleAt(rotation, p) else null
+                // Serving team goes directly to its attack formation.
+                // Receiving team goes to attack only after reception is recorded.
+                val attackRole = if (!receiving || receptionRecordedThisRally) attackRoleAt(rotation, p) else null
+                // Keep the special P1 serving variation as the only override.
                 val displayRole = receptionRole ?: servingP1Role ?: attackRole
                 val displayPlayer = if (displayRole == "Λ") libero else if (displayRole != null) {
                     teams[ti].roster.firstOrNull { it.role == displayRole }
