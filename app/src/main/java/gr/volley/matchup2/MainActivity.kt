@@ -37,6 +37,7 @@ class MainActivity : AppCompatActivity() {
     private var lastActionWasBlock = false
     private var lastAttackerTeam: Int? = null
     private var lastAttackerName: String? = null
+    private var lastAttackerPosition: String? = null
     private val initialRotation = intArrayOf(1, 1)
     // Explicit logical rotation labels. Order is P1 -> P6 -> P5 -> P4 -> P3 -> P2 -> P1.
     private val currentRotation = intArrayOf(1, 1)
@@ -705,6 +706,7 @@ class MainActivity : AppCompatActivity() {
         lastActionWasBlock = false
         lastAttackerTeam = null
         lastAttackerName = null
+        lastAttackerPosition = null
         showCourt()
     }
 
@@ -1274,43 +1276,32 @@ class MainActivity : AppCompatActivity() {
             setOnClickListener {
                 val who = player.name.takeIf { it.isNotBlank() } ?: (role ?: "Παίκτρια")
                 if (lastAttackerTeam != null && lastAttackerTeam != ti && rallyBallTeam == ti) {
-                    // The opponent has just attacked: this touch is DEFENSE.
-                    // After the defensive contact this team keeps the ball and can attack next.
+                    // The defender's court position IS the attack direction.
+                    // If the previous attacker was an opponent, record that target now.
+                    if (lastAttackerTeam == 1 && ti == 0) {
+                        val attacker = lastAttackerName ?: "—"
+                        val attackPos = lastAttackerPosition ?: "—"
+                        val target = "P${pos + 1}"
+                        val rotation = teamRotation(1)
+                        val key = "$rotation|$attacker|$attackPos|$target"
+                        opponentAttackPattern[key] = (opponentAttackPattern[key] ?: 0) + 1
+                        Toast.makeText(this@MainActivity, "ΑΜΥΝΑ: $who ($target) — $attacker → $target", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(this@MainActivity, "ΑΜΥΝΑ: $who", Toast.LENGTH_SHORT).show()
+                    }
                     rallyBallTeam = ti
                     lastAttackerTeam = null
                     lastAttackerName = null
+                    lastAttackerPosition = null
                     lastActionWasBlock = false
-                    Toast.makeText(this@MainActivity, "ΑΜΥΝΑ: $who", Toast.LENGTH_SHORT).show()
                 } else {
                     // This team has possession: this touch is ATTACK.
                     lastAttackerTeam = ti
                     lastAttackerName = who
+                    lastAttackerPosition = "P${pos + 1}"
                     lastActionWasBlock = false
-                    if (ti == 1) {
-                        val attackPos = "P${pos + 1}"
-                        val rotation = teamRotation(1)
-                        val targets = arrayOf("P1","P6","P5","P4","P3","P2")
-                        AlertDialog.Builder(this@MainActivity)
-                            .setTitle("ΕΠΙΘΕΣΗ: $who ($attackPos)")
-                            .setMessage("Κατεύθυνση επίθεσης")
-                            .setItems(targets) { _, which ->
-                                val target = targets[which]
-                                val key = "$rotation|$who|$attackPos|$target"
-                                opponentAttackPattern[key] = (opponentAttackPattern[key] ?: 0) + 1
-                                rallyBallTeam = 0
-                                Toast.makeText(this@MainActivity, "ΕΠΙΘΕΣΗ: $who → $target", Toast.LENGTH_SHORT).show()
-                                showCourt()
-                            }
-                            .setNegativeButton("ΑΚΥΡΟ") { _, _ ->
-                                lastAttackerTeam = null
-                                lastAttackerName = null
-                            }
-                            .show()
-                    } else {
-                        rallyBallTeam = 1
-                        Toast.makeText(this@MainActivity, "ΕΠΙΘΕΣΗ: $who", Toast.LENGTH_SHORT).show()
-                        showCourt()
-                    }
+                    rallyBallTeam = 1 - ti
+                    Toast.makeText(this@MainActivity, "ΕΠΙΘΕΣΗ: $who (P${pos + 1})", Toast.LENGTH_SHORT).show()
                 }
                 showCourt()
             }
