@@ -932,7 +932,8 @@ class MainActivity : AppCompatActivity() {
 
         val who = player?.name?.takeIf { it.isNotBlank() } ?: role
         receptionRecordedThisRally = true
-                            nextAttackContext[ti] = "RECEPTION"
+        // recordReception() is used for our team reception.
+        nextAttackContext[0] = "RECEPTION"
         Toast.makeText(this, "+1 υποδοχή: $who", Toast.LENGTH_SHORT).show()
         showCourt()
     }
