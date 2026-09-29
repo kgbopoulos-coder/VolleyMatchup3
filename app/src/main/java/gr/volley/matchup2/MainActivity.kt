@@ -77,7 +77,7 @@ class MainActivity : AppCompatActivity() {
     override fun onBackPressed() {
         when (currentScreen) {
             "PATTERN", "ATTACK_PATTERN" -> showCourt()
-            "COURT", "ROSTER", "ROTATION" -> showHome()
+            "COURT", "ROSTER", "ROTATION", "MATCHUP" -> showHome()
             else -> AlertDialog.Builder(this)
                 .setTitle("Έξοδος")
                 .setMessage("Θέλεις να κλείσεις την εφαρμογή;")
@@ -120,8 +120,89 @@ class MainActivity : AppCompatActivity() {
         root.addView(button("ROSTER — ΑΝΤΙΠΑΛΗ ΟΜΑΔΑ"){ teamIndex=1; showRoster() })
         root.addView(button("ΑΡΧΙΚΗ ΠΕΡΙΣΤΡΟΦΗ"){ showRotationSetup() })
         root.addView(button("ΓΗΠΕΔΟ"){ showCourt() })
+        root.addView(button("MATCHUP"){ showMatchup() })
         root.addView(button("ΕΞΑΓΩΓΗ ΟΜΑΔΩΝ"){ exportTeams() })
         root.addView(button("ΕΙΣΑΓΩΓΗ ΟΜΑΔΩΝ"){ importTeams() })
+    }
+
+    private fun lineupForRotation(ti: Int, rotation: Int): IntArray {
+        val a = p1Formation[ti].clone()
+        val steps = when(rotation) { 1->0; 6->1; 5->2; 4->3; 3->4; 2->5; else->0 }
+        repeat(steps) {
+            val old = a.clone()
+            a[5]=old[0]; a[4]=old[5]; a[3]=old[4]; a[2]=old[3]; a[1]=old[2]; a[0]=old[1]
+        }
+        return a
+    }
+
+    private fun showMatchup() {
+        currentScreen = "MATCHUP"
+        base("MATCHUP")
+        val rotations = arrayOf("P1","P6","P5","P4","P3","P2")
+        var ourRot = currentRotation[0]
+        var oppRot = currentRotation[1]
+
+        val controls = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val ourSpinner = Spinner(this).apply {
+            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, rotations)
+            setSelection(rotations.indexOf("P$ourRot"))
+            layoutParams = LinearLayout.LayoutParams(0,-2,1f)
+        }
+        val oppSpinner = Spinner(this).apply {
+            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, rotations)
+            setSelection(rotations.indexOf("P$oppRot"))
+            layoutParams = LinearLayout.LayoutParams(0,-2,1f)
+        }
+        controls.addView(ourSpinner); controls.addView(oppSpinner)
+        root.addView(TextView(this).apply { text="ΔΙΚΗ ΜΑΣ ΠΕΡΙΣΤΡΟΦΗ        ΑΝΤΙΠΑΛΗ"; gravity=Gravity.CENTER })
+        root.addView(controls)
+        val content = LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
+        root.addView(content)
+
+        fun render() {
+            content.removeAllViews()
+            fun side(title:String, attackTeam:Int, attackRot:Int, blockTeam:Int, blockRot:Int) {
+                content.addView(TextView(this).apply { text=title; textSize=18f; gravity=Gravity.CENTER; setPadding(0,18,0,8) })
+                val atk=lineupForRotation(attackTeam,attackRot)
+                val blk=lineupForRotation(blockTeam,blockRot)
+                val totals=linkedMapOf<String,Int>()
+                fun player(t:Int, ix:Int):Player? = if(ix in 0..13) teams[t].roster[ix] else null
+                fun label(p:Player?):String = p?.let { (it.name.ifBlank{"—"})+" ("+(it.role.ifBlank{"—"})+")" } ?: "—"
+                fun addTotal(p:Player?) { if(p!=null) { val k=label(p); totals[k]=(totals[k]?:0)+1 } }
+                // P4 attacks against P2 + middle blocker (P3).
+                val matchups = arrayOf(
+                    Triple(3, intArrayOf(1,2), "P4"),
+                    Triple(2, intArrayOf(2), "P3"),
+                    Triple(1, intArrayOf(3,2), "P2")
+                )
+                matchups.forEach { (attackPos,blockPos,titlePos) ->
+                    val a=player(attackTeam,atk[attackPos])
+                    val blockers=blockPos.map { player(blockTeam,blk[it]) }
+                    blockers.forEach { addTotal(it) }
+                    content.addView(TextView(this@MainActivity).apply {
+                        text="$titlePos — ${label(a)}\n→ "+blockers.joinToString(" + ") { label(it) }
+                        textSize=15f; setPadding(0,7,0,7)
+                    })
+                }
+                content.addView(TextView(this@MainActivity).apply {
+                    text="ΣΥΝΟΛΟ ΑΠΕΝΑΝΤΙ ΜΠΛΟΚ\n"+totals.entries.joinToString("\n") { "${it.key} ×${it.value}" }
+                    textSize=16f; setPadding(0,10,0,12)
+                })
+            }
+            side("${teams[0].name} — ΕΠΙΘΕΣΗ",0,ourRot,1,oppRot)
+            side("${teams[1].name} — ΕΠΙΘΕΣΗ",1,oppRot,0,ourRot)
+        }
+        val listener=object:AdapterView.OnItemSelectedListener {
+            override fun onNothingSelected(parent:AdapterView<*>?) {}
+            override fun onItemSelected(parent:AdapterView<*>?,view:View?,position:Int,id:Long) {
+                ourRot=rotations[ourSpinner.selectedItemPosition].removePrefix("P").toInt()
+                oppRot=rotations[oppSpinner.selectedItemPosition].removePrefix("P").toInt()
+                render()
+            }
+        }
+        ourSpinner.onItemSelectedListener=listener; oppSpinner.onItemSelectedListener=listener
+        render()
+        root.addView(button("ΠΙΣΩ"){showHome()})
     }
 
     private fun exportTeams() {
