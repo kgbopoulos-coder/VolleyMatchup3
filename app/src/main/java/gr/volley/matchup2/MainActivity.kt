@@ -174,8 +174,24 @@ class MainActivity : AppCompatActivity() {
                 val ix=rotOrder.indexOf(r)
                 return rotOrder[(ix+steps)%6]
             }
-            fun attackPlayer(t:Int, rotation:Int, pos:Int):Player? {
-                val role=attackRoleAt(rotation,pos) ?: return null
+            fun matchupRoleAt(t:Int, rotation:Int, pos:Int, startRotation:Int):String? {
+                // Special P1 formation applies only to the team that is serving
+                // while its selected/current matchup rotation is P1.
+                if (t == servingTeam && rotation == 1 && startRotation == 1) {
+                    return when(pos) {
+                        0 -> "Π"    // P1
+                        5 -> "ΑΚ2"  // P6
+                        4 -> "Λ"    // P5
+                        3 -> "ΑΚ1"  // P4
+                        2 -> "Κ2"   // P3
+                        1 -> "Δ"    // P2
+                        else -> null
+                    }
+                }
+                return attackRoleAt(rotation,pos)
+            }
+            fun attackPlayer(t:Int, rotation:Int, pos:Int, startRotation:Int):Player? {
+                val role=matchupRoleAt(t,rotation,pos,startRotation) ?: return null
                 return teams[t].roster.firstOrNull { it.role==role }
             }
             fun label(p:Player?):String = p?.let { (it.name.ifBlank{"—"})+" ("+(it.role.ifBlank{"—"})+")" } ?: "—"
@@ -193,7 +209,7 @@ class MainActivity : AppCompatActivity() {
                     val ar=nextRot(startAttackRot,step)
                     val br=nextRot(startBlockRot,step)
                     for(attackPos in intArrayOf(3,2,1)) {
-                        val attacker=attackPlayer(attackTeam,ar,attackPos) ?: continue
+                        val attacker=attackPlayer(attackTeam,ar,attackPos,startAttackRot) ?: continue
                         val attackerKey=label(attacker)
                         val totals=playerTotals.getOrPut(attackerKey){ linkedMapOf() }
 
@@ -204,7 +220,7 @@ class MainActivity : AppCompatActivity() {
                             else -> intArrayOf()
                         }
                         blockPositions.forEach { bp ->
-                            val blocker=attackPlayer(blockTeam,br,bp) ?: return@forEach
+                            val blocker=attackPlayer(blockTeam,br,bp,startBlockRot) ?: return@forEach
                             val blockerKey=label(blocker)
                             totals[blockerKey]=(totals[blockerKey]?:0)+1
                         }
