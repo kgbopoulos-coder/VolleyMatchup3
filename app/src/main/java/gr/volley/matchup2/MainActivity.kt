@@ -75,6 +75,77 @@ class MainActivity : AppCompatActivity() {
     private val exportTeamsRequest = 9101
     private val importTeamsRequest = 9102
 
+    private data class RallySnapshot(
+        val selected: Array<IntArray>, val currentRotation: IntArray, val servingTeam: Int,
+        val receptionRecordedThisRally: Boolean, val rallyBallTeam: Int?, val lastActionWasBlock: Boolean,
+        val lastAttackerTeam: Int?, val lastAttackerName: String?, val lastAttackerPosition: String?,
+        val lastAttackerContext: String?, val nextAttackContext: Array<String?>,
+        val lastTouchedTeam: Int?, val lastTouchedPos: Int?, val lastTouchWasBlock: Boolean,
+        val receptionCounts: Map<String,Int>, val receptionCountsByRotation: Map<String,Int>,
+        val receptionBackCounts: Map<String,Int>, val receptionFrontCounts: Map<String,Int>,
+        val receptionPositionCounts: Map<String,Int>, val matchReceptionCounts: Map<String,Int>,
+        val matchReceptionBackCounts: Map<String,Int>, val matchReceptionFrontCounts: Map<String,Int>,
+        val serverPreviousCounts: Map<String,Map<String,Int>>,
+        val serverPreviousBackCounts: Map<String,Map<String,Int>>,
+        val serverPreviousFrontCounts: Map<String,Map<String,Int>>,
+        val serverSetCounts: Map<String,Map<String,Int>>,
+        val opponentAttackPattern: Map<String,Int>, val opponentAttackPatternByContext: Map<String,Int>
+    )
+    private var undoSnapshot: RallySnapshot? = null
+    private var lastActionText = "Καμία ενέργεια"
+
+    private fun nestedCopy(src: Map<String, MutableMap<String,Int>>): Map<String,Map<String,Int>> =
+        src.mapValues { HashMap(it.value) }
+
+    private fun captureForUndo(action: String) {
+        undoSnapshot = RallySnapshot(
+            Array(2) { selected[it].clone() }, currentRotation.clone(), servingTeam,
+            receptionRecordedThisRally, rallyBallTeam, lastActionWasBlock,
+            lastAttackerTeam, lastAttackerName, lastAttackerPosition, lastAttackerContext,
+            nextAttackContext.clone(), lastTouchedTeam, lastTouchedPos, lastTouchWasBlock,
+            HashMap(receptionCounts), HashMap(receptionCountsByRotation),
+            HashMap(receptionBackCounts), HashMap(receptionFrontCounts), HashMap(receptionPositionCounts),
+            HashMap(matchReceptionCounts), HashMap(matchReceptionBackCounts), HashMap(matchReceptionFrontCounts),
+            nestedCopy(serverPreviousCounts), nestedCopy(serverPreviousBackCounts),
+            nestedCopy(serverPreviousFrontCounts), nestedCopy(serverSetCounts),
+            HashMap(opponentAttackPattern), HashMap(opponentAttackPatternByContext)
+        )
+        lastActionText = action
+    }
+
+    private fun restoreNested(dst: MutableMap<String, MutableMap<String,Int>>, src: Map<String,Map<String,Int>>) {
+        dst.clear()
+        src.forEach { (k,v) -> dst[k] = v.toMutableMap() }
+    }
+
+    private fun undoLastAction() {
+        val s = undoSnapshot ?: run {
+            Toast.makeText(this, "Δεν υπάρχει ενέργεια για αναίρεση", Toast.LENGTH_SHORT).show()
+            return
+        }
+        for (t in 0..1) for (p in 0..5) selected[t][p] = s.selected[t][p]
+        currentRotation[0]=s.currentRotation[0]; currentRotation[1]=s.currentRotation[1]
+        servingTeam=s.servingTeam; receptionRecordedThisRally=s.receptionRecordedThisRally
+        rallyBallTeam=s.rallyBallTeam; lastActionWasBlock=s.lastActionWasBlock
+        lastAttackerTeam=s.lastAttackerTeam; lastAttackerName=s.lastAttackerName
+        lastAttackerPosition=s.lastAttackerPosition; lastAttackerContext=s.lastAttackerContext
+        nextAttackContext[0]=s.nextAttackContext[0]; nextAttackContext[1]=s.nextAttackContext[1]
+        lastTouchedTeam=s.lastTouchedTeam; lastTouchedPos=s.lastTouchedPos; lastTouchWasBlock=s.lastTouchWasBlock
+        fun restore(dst:MutableMap<String,Int>, src:Map<String,Int>){ dst.clear(); dst.putAll(src) }
+        restore(receptionCounts,s.receptionCounts); restore(receptionCountsByRotation,s.receptionCountsByRotation)
+        restore(receptionBackCounts,s.receptionBackCounts); restore(receptionFrontCounts,s.receptionFrontCounts)
+        restore(receptionPositionCounts,s.receptionPositionCounts); restore(matchReceptionCounts,s.matchReceptionCounts)
+        restore(matchReceptionBackCounts,s.matchReceptionBackCounts); restore(matchReceptionFrontCounts,s.matchReceptionFrontCounts)
+        restoreNested(serverPreviousCounts,s.serverPreviousCounts); restoreNested(serverPreviousBackCounts,s.serverPreviousBackCounts)
+        restoreNested(serverPreviousFrontCounts,s.serverPreviousFrontCounts); restoreNested(serverSetCounts,s.serverSetCounts)
+        restore(opponentAttackPattern,s.opponentAttackPattern); restore(opponentAttackPatternByContext,s.opponentAttackPatternByContext)
+        val undone = lastActionText
+        undoSnapshot=null
+        lastActionText="Αναίρεση: $undone"
+        Toast.makeText(this, "Αναιρέθηκε: $undone", Toast.LENGTH_SHORT).show()
+        showCourt()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
@@ -614,6 +685,14 @@ class MainActivity : AppCompatActivity() {
             setPadding(0,0,0,12)
         })
 
+        root.addView(TextView(this).apply {
+            text = "ΤΕΛΕΥΤΑΙΑ ΕΝΕΡΓΕΙΑ: $lastActionText"
+            gravity = Gravity.CENTER
+            textSize = 15f
+            setPadding(0,0,0,8)
+        })
+        root.addView(button("↶  ΑΝΑΙΡΕΣΗ") { undoLastAction() })
+
         if (servingTeam == 1) {
             val server = currentOpponentServer()
             val sKey = server?.let { serverKey(it) }
@@ -653,6 +732,7 @@ class MainActivity : AppCompatActivity() {
             if (team == null) {
                 Toast.makeText(this, "Επίλεξε πρώτα επιτιθέμενη", Toast.LENGTH_SHORT).show()
             } else {
+                captureForUndo("ΜΠΛΟΚ")
                 // Block touch sends the ball back to the attacking side.
                 rallyBallTeam = team
                 lastActionWasBlock = true
@@ -668,8 +748,8 @@ class MainActivity : AppCompatActivity() {
         // Names and roles come from the active rotation and move automatically with rotation.
         addCourtHalf(0, teams[0].name, false)
 
-        root.addView(button("ΠΟΝΤΟΣ ΔΙΚΟΣ ΜΑΣ") { pointWonBy(0) })
-        root.addView(button("ΠΟΝΤΟΣ ΑΝΤΙΠΑΛΟΥ") { pointWonBy(1) })
+        root.addView(button("ΠΟΝΤΟΣ ΔΙΚΟΣ ΜΑΣ") { captureForUndo("ΠΟΝΤΟΣ ΔΙΚΟΣ ΜΑΣ"); pointWonBy(0) })
+        root.addView(button("ΠΟΝΤΟΣ ΑΝΤΙΠΑΛΟΥ") { captureForUndo("ΠΟΝΤΟΣ ΑΝΤΙΠΑΛΟΥ"); pointWonBy(1) })
         root.addView(button("ΜΟΤΙΒΟ SERVICE") { showServicePattern() })
         root.addView(button("ΜΟΤΙΒΟ ΕΠΙΘΕΣΗΣ") { showAttackPattern() })
         root.addView(button("ΤΕΛΟΣ ΣΕΤ") { confirmEndSet() })
@@ -701,6 +781,8 @@ class MainActivity : AppCompatActivity() {
                 serverPreviousFrontCounts.clear()
                 serverSetCounts.clear()
                 currentSet = 1
+                undoSnapshot = null
+                lastActionText = "Καμία ενέργεια"
                 Toast.makeText(this, "Τα στατιστικά καθαρίστηκαν", Toast.LENGTH_SHORT).show()
                 showCourt()
             }
@@ -917,6 +999,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun recordReception(player: Player?, role: String, rotation: Int, front: Boolean) {
+        val whoForAction = player?.name?.takeIf { it.isNotBlank() } ?: role
+        val depthForAction = if (front) "ΜΠΡΟΣΤΑ" else "ΠΙΣΩ"
+        captureForUndo("ΥΠΟΔΟΧΗ: $whoForAction — $depthForAction")
         receptionCounts[role] = (receptionCounts[role] ?: 0) + 1
         matchReceptionCounts[role] = (matchReceptionCounts[role] ?: 0) + 1
         val server = currentOpponentServer()
@@ -1321,6 +1406,8 @@ class MainActivity : AppCompatActivity() {
             isClickable = true
             setOnClickListener {
                 val who = player.name.takeIf { it.isNotBlank() } ?: (role ?: "Παίκτρια")
+                val actionKind = if (lastAttackerTeam != null && lastAttackerTeam != ti && rallyBallTeam == ti) "ΑΜΥΝΑ" else "ΕΠΙΘΕΣΗ"
+                captureForUndo("$actionKind: $who — P${pos + 1}")
                 lastTouchedTeam = ti
                 lastTouchedPos = pos
                 lastTouchWasBlock = false
@@ -1379,6 +1466,7 @@ class MainActivity : AppCompatActivity() {
                             lastTouchWasBlock = false
                             recordReception(player, overrideRole!!, teamRotation(ti), true)
                         } else {
+                            captureForUndo("ΥΠΟΔΟΧΗ: $who — ΜΠΡΟΣΤΑ")
                             receptionRecordedThisRally = true
                             nextAttackContext[ti] = "RECEPTION"
                             lastTouchedTeam = ti
@@ -1395,6 +1483,7 @@ class MainActivity : AppCompatActivity() {
                             lastTouchWasBlock = false
                             recordReception(player, overrideRole!!, teamRotation(ti), false)
                         } else {
+                            captureForUndo("ΥΠΟΔΟΧΗ: $who — ΠΙΣΩ")
                             receptionRecordedThisRally = true
                             nextAttackContext[ti] = "RECEPTION"
                             lastTouchedTeam = ti
