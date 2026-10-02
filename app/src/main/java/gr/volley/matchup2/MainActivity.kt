@@ -156,7 +156,7 @@ class MainActivity : AppCompatActivity() {
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         when (currentScreen) {
-            "PATTERN", "ATTACK_PATTERN" -> showCourt()
+            "PATTERN", "ATTACK_PATTERN", "REPORT" -> showCourt()
             "COURT", "ROSTER", "ROTATION", "MATCHUP" -> showHome()
             else -> AlertDialog.Builder(this)
                 .setTitle("Έξοδος")
@@ -1219,6 +1219,69 @@ class MainActivity : AppCompatActivity() {
             })
         }
 
+        root.addView(button("REPORT"){ showPatternsReport() })
+        root.addView(button("ΠΙΣΩ"){ showCourt() })
+    }
+
+    private fun showPatternsReport() {
+        currentScreen = "REPORT"
+        base("REPORT ΜΟΤΙΒΩΝ")
+        root.addView(TextView(this).apply {
+            text = "REPORT ΑΓΩΝΑ\n${teams[0].name}  ${score[0]} - ${score[1]}  ${teams[1].name}\nΣΕΤ $currentSet"
+            gravity = Gravity.CENTER; textSize = 22f; setPadding(0,0,0,18)
+        })
+
+        root.addView(TextView(this).apply {
+            text = "SERVICE — ΑΝΤΙΠΑΛΗ ΟΜΑΔΑ"
+            textSize = 19f; gravity = Gravity.CENTER; setPadding(0,12,0,8)
+        })
+        val serviceTotal = matchReceptionCounts.values.sum()
+        if (serviceTotal == 0) {
+            root.addView(TextView(this).apply { text="Χωρίς καταγραφές service."; gravity=Gravity.CENTER })
+        } else {
+            arrayOf("ΑΚ1","ΑΚ2","Λ").sortedByDescending { matchReceptionCounts[it] ?: 0 }.forEach { role ->
+                val n=matchReceptionCounts[role]?:0
+                val pct=((n*100.0)/serviceTotal).toInt()
+                val name=teams[0].roster.firstOrNull{it.role==role}?.name?.takeIf{it.isNotBlank()}?:role
+                root.addView(TextView(this).apply {
+                    text="$name ($role): $n/$serviceTotal ($pct%) — μπροστά ${matchReceptionFrontCounts[role]?:0} — πίσω ${matchReceptionBackCounts[role]?:0}"
+                    textSize=15f; setPadding(0,4,0,4)
+                })
+            }
+            root.addView(TextView(this).apply { text="ΑΝΑ ΠΕΡΙΣΤΡΟΦΗ"; textSize=17f; setPadding(0,14,0,6) })
+            arrayOf(1,6,5,4,3,2).forEach { r ->
+                val counts=arrayOf("ΑΚ1","ΑΚ2","Λ").associateWith { role -> receptionCountsByRotation["P$r|$role"]?:0 }
+                val total=counts.values.sum()
+                val detail=if(total==0) "χωρίς καταγραφή" else counts.entries.joinToString(" — "){(role,n)->"$role $n (${(n*100.0/total).toInt()}%)"}
+                root.addView(TextView(this).apply { text="P$r: $detail"; textSize=14f; setPadding(0,3,0,3) })
+            }
+        }
+
+        fun attackSection(context:String,title:String) {
+            root.addView(TextView(this).apply { text=title; textSize=19f; gravity=Gravity.CENTER; setPadding(0,18,0,8) })
+            var any=false
+            arrayOf(1,6,5,4,3,2).forEach { rotation ->
+                val prefix="$context|$rotation|"
+                val entries=opponentAttackPatternByContext.filterKeys{it.startsWith(prefix)}
+                if(entries.isNotEmpty()) {
+                    any=true
+                    root.addView(TextView(this).apply { text="ΠΕΡΙΣΤΡΟΦΗ P$rotation"; textSize=16f; setPadding(0,8,0,3) })
+                    val grouped=entries.entries.groupBy { val p=it.key.split("|"); "${p[2]}|${p[3]}" }
+                    grouped.forEach { (ak,attacks) ->
+                        val ap=ak.split("|"); val counts=mutableMapOf<String,Int>()
+                        attacks.forEach { e -> val target=e.key.split("|")[4]; counts[target]=(counts[target]?:0)+e.value }
+                        val total=counts.values.sum()
+                        val detail=arrayOf("P1","P6","P5","P4","P3","P2").filter{(counts[it]?:0)>0}
+                            .joinToString(" — "){p->"$p ${counts[p]}/$total"}
+                        root.addView(TextView(this).apply { text="${ap[0]} (${ap[1]}): $detail"; textSize=14f; setPadding(0,3,0,3) })
+                    }
+                }
+            }
+            if(!any) root.addView(TextView(this).apply { text="Χωρίς καταγραφές."; gravity=Gravity.CENTER })
+        }
+        attackSection("RECEPTION","ΕΠΙΘΕΣΗ ΑΝΤΙΠΑΛΟΥ ΜΕΤΑ ΑΠΟ ΥΠΟΔΟΧΗ")
+        attackSection("DEFENSE","ΕΠΙΘΕΣΗ ΑΝΤΙΠΑΛΟΥ ΜΕΤΑ ΑΠΟ ΑΜΥΝΑ")
+        root.addView(button("REPORT"){ showPatternsReport() })
         root.addView(button("ΠΙΣΩ"){ showCourt() })
     }
 
