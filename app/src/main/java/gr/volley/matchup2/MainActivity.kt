@@ -53,6 +53,7 @@ class MainActivity : AppCompatActivity() {
     private val receptionFrontCounts = mutableMapOf<String, Int>()
     private val receptionPositionCounts = mutableMapOf<String, Int>()
     private var currentSet = 1
+    private val score = intArrayOf(0, 0)
     private val previousSetCounts = mutableMapOf<String, Int>()
     private val previousSetBackCounts = mutableMapOf<String, Int>()
     private val previousSetFrontCounts = mutableMapOf<String, Int>()
@@ -76,7 +77,7 @@ class MainActivity : AppCompatActivity() {
     private val importTeamsRequest = 9102
 
     private data class RallySnapshot(
-        val selected: Array<IntArray>, val currentRotation: IntArray, val servingTeam: Int,
+        val selected: Array<IntArray>, val currentRotation: IntArray, val servingTeam: Int, val score: IntArray,
         val receptionRecordedThisRally: Boolean, val rallyBallTeam: Int?, val lastActionWasBlock: Boolean,
         val lastAttackerTeam: Int?, val lastAttackerName: String?, val lastAttackerPosition: String?,
         val lastAttackerContext: String?, val nextAttackContext: Array<String?>,
@@ -99,7 +100,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun captureForUndo(action: String) {
         undoSnapshot = RallySnapshot(
-            Array(2) { selected[it].clone() }, currentRotation.clone(), servingTeam,
+            Array(2) { selected[it].clone() }, currentRotation.clone(), servingTeam, score.clone(),
             receptionRecordedThisRally, rallyBallTeam, lastActionWasBlock,
             lastAttackerTeam, lastAttackerName, lastAttackerPosition, lastAttackerContext,
             nextAttackContext.clone(), lastTouchedTeam, lastTouchedPos, lastTouchWasBlock,
@@ -125,7 +126,7 @@ class MainActivity : AppCompatActivity() {
         }
         for (t in 0..1) for (p in 0..5) selected[t][p] = s.selected[t][p]
         currentRotation[0]=s.currentRotation[0]; currentRotation[1]=s.currentRotation[1]
-        servingTeam=s.servingTeam; receptionRecordedThisRally=s.receptionRecordedThisRally
+        servingTeam=s.servingTeam; score[0]=s.score[0]; score[1]=s.score[1]; receptionRecordedThisRally=s.receptionRecordedThisRally
         rallyBallTeam=s.rallyBallTeam; lastActionWasBlock=s.lastActionWasBlock
         lastAttackerTeam=s.lastAttackerTeam; lastAttackerName=s.lastAttackerName
         lastAttackerPosition=s.lastAttackerPosition; lastAttackerContext=s.lastAttackerContext
@@ -668,6 +669,13 @@ class MainActivity : AppCompatActivity() {
         currentScreen = "COURT"
         base("ΓΗΠΕΔΟ")
         root.addView(TextView(this).apply {
+            text = "ΣΕΤ $currentSet     ${teams[0].name}  ${score[0]}  -  ${score[1]}  ${teams[1].name}"
+            gravity = Gravity.CENTER
+            textSize = 22f
+            setTextColor(Color.rgb(32,32,95))
+            setPadding(0,0,0,12)
+        })
+        root.addView(TextView(this).apply {
             text = if (servingTeam == 0) {
                 val ix = selected[0][0]
                 val server = if (ix in 0..13) teams[0].roster[ix] else null
@@ -781,6 +789,8 @@ class MainActivity : AppCompatActivity() {
                 serverPreviousFrontCounts.clear()
                 serverSetCounts.clear()
                 currentSet = 1
+                score[0] = 0
+                score[1] = 0
                 undoSnapshot = null
                 lastActionText = "Καμία ενέργεια"
                 Toast.makeText(this, "Τα στατιστικά καθαρίστηκαν", Toast.LENGTH_SHORT).show()
@@ -817,12 +827,15 @@ class MainActivity : AppCompatActivity() {
         receptionFrontCounts.clear()
         receptionPositionCounts.clear()
         serverSetCounts.clear()
+        score[0] = 0
+        score[1] = 0
         currentSet++
         Toast.makeText(this, "Έναρξη σετ $currentSet", Toast.LENGTH_SHORT).show()
         showCourt()
     }
 
     private fun pointWonBy(winner: Int) {
+        score[winner]++
         if (winner != servingTeam) {
             rotateTeam(winner)
             servingTeam = winner
