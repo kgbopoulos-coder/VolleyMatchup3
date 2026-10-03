@@ -1269,7 +1269,7 @@ class MainActivity : AppCompatActivity() {
                     val receiver=teams[0].roster.firstOrNull{it.role==role}
                     val receiverName=receiver?.name?.takeIf{it.isNotBlank()} ?: role
                     val pct=if(total==0) 0 else (n*100.0/total).toInt()
-                    "$receiverName $n ($pct%)"
+                    "$receiverName ($role) $n ($pct%)"
                 }
                 val line=if(total==0) "P$r $serverName: χωρίς καταγραφή"
                     else "P$r $serverName σημαδεύει στο $targets"
