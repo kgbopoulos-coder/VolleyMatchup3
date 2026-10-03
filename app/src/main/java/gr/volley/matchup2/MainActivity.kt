@@ -760,6 +760,7 @@ class MainActivity : AppCompatActivity() {
         root.addView(button("ΠΟΝΤΟΣ ΑΝΤΙΠΑΛΟΥ") { captureForUndo("ΠΟΝΤΟΣ ΑΝΤΙΠΑΛΟΥ"); pointWonBy(1) })
         root.addView(button("ΜΟΤΙΒΟ SERVICE") { showServicePattern() })
         root.addView(button("ΜΟΤΙΒΟ ΕΠΙΘΕΣΗΣ") { showAttackPattern() })
+        root.addView(button("📄  REPORT ΜΟΤΙΒΩΝ") { showPatternsReport() })
         root.addView(button("ΤΕΛΟΣ ΣΕΤ") { confirmEndSet() })
         root.addView(button("ΚΑΘΑΡΙΣΜΟΣ") { confirmClearMatch() })
         root.addView(button("ΠΙΣΩ"){showHome()})
@@ -1293,6 +1294,7 @@ class MainActivity : AppCompatActivity() {
                 text = "Δεν υπάρχουν ακόμη καταγεγραμμένες επιθέσεις αντιπάλου."
                 gravity = Gravity.CENTER; textSize = 16f; setPadding(0,20,0,20)
             })
+            root.addView(button("REPORT") { showPatternsReport() })
             root.addView(button("ΠΙΣΩ") { showCourt() }); return
         }
         fun section(context:String, title:String) {
@@ -1328,6 +1330,7 @@ class MainActivity : AppCompatActivity() {
         }
         section("RECEPTION","1. ΕΠΙΘΕΣΗ ΜΕΤΑ ΑΠΟ ΥΠΟΔΟΧΗ")
         section("DEFENSE","2. ΕΠΙΘΕΣΗ ΜΕΤΑ ΑΠΟ ΑΜΥΝΑ")
+        root.addView(button("REPORT") { showPatternsReport() })
         root.addView(button("ΠΙΣΩ") { showCourt() })
     }
 
