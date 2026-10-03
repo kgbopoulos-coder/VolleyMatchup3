@@ -1253,8 +1253,27 @@ class MainActivity : AppCompatActivity() {
             arrayOf(1,6,5,4,3,2).forEach { r ->
                 val counts=arrayOf("ΑΚ1","ΑΚ2","Λ").associateWith { role -> receptionCountsByRotation["P$r|$role"]?:0 }
                 val total=counts.values.sum()
-                val detail=if(total==0) "χωρίς καταγραφή" else counts.entries.joinToString(" — "){(role,n)->"$role $n (${(n*100.0/total).toInt()}%)"}
-                root.addView(TextView(this).apply { text="P$r: $detail"; textSize=14f; setPadding(0,3,0,3) })
+
+                // Find the opponent server for this rotation from the saved P1 lineup.
+                val steps=when(r){1->0;6->1;5->2;4->3;3->4;2->5;else->0}
+                val lineup=p1Formation[1].clone()
+                repeat(steps) {
+                    val old=lineup.clone()
+                    lineup[5]=old[0]; lineup[4]=old[5]; lineup[3]=old[4]
+                    lineup[2]=old[3]; lineup[1]=old[2]; lineup[0]=old[1]
+                }
+                val server=teams[1].roster.getOrNull(lineup[0])
+                val serverName=server?.name?.takeIf{it.isNotBlank()} ?: "—"
+
+                val targets=counts.entries.filter{it.value>0}.sortedByDescending{it.value}.joinToString(" — ") { (role,n) ->
+                    val receiver=teams[0].roster.firstOrNull{it.role==role}
+                    val receiverName=receiver?.name?.takeIf{it.isNotBlank()} ?: role
+                    val pct=if(total==0) 0 else (n*100.0/total).toInt()
+                    "$receiverName $n ($pct%)"
+                }
+                val line=if(total==0) "P$r $serverName: χωρίς καταγραφή"
+                    else "P$r $serverName σημαδεύει στο $targets"
+                root.addView(TextView(this).apply { text=line; textSize=14f; setPadding(0,3,0,3) })
             }
         }
 
