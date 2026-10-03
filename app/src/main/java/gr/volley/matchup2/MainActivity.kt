@@ -1012,7 +1012,7 @@ class MainActivity : AppCompatActivity() {
         pendingReception = null
     }
 
-    private fun recordReception(player: Player?, role: String, rotation: Int, front: Boolean) {
+    private fun recordReception(player: Player?, role: String, rotation: Int, front: Boolean, courtPos: Int? = null) {
         val whoForAction = player?.name?.takeIf { it.isNotBlank() } ?: role
         val depthForAction = if (front) "ΜΠΡΟΣΤΑ" else "ΠΙΣΩ"
         captureForUndo("ΥΠΟΔΟΧΗ: $whoForAction — $depthForAction")
@@ -1028,6 +1028,10 @@ class MainActivity : AppCompatActivity() {
         }
         val key = "P$rotation|$role"
         receptionCountsByRotation[key] = (receptionCountsByRotation[key] ?: 0) + 1
+        if (courtPos != null) {
+            val posKey = "P$rotation|$role|P${courtPos + 1}"
+            receptionCountsByRotation[posKey] = (receptionCountsByRotation[posKey] ?: 0) + 1
+        }
 
         if (front) {
             receptionFrontCounts[role] = (receptionFrontCounts[role] ?: 0) + 1
@@ -1269,7 +1273,10 @@ class MainActivity : AppCompatActivity() {
                     val receiver=teams[0].roster.firstOrNull{it.role==role}
                     val receiverName=receiver?.name?.takeIf{it.isNotBlank()} ?: role
                     val pct=if(total==0) 0 else (n*100.0/total).toInt()
-                    "$receiverName ($role) $n ($pct%)"
+                    val posCounts=(1..6).associateWith { p -> receptionCountsByRotation["P$r|$role|P$p"] ?: 0 }
+                    val receiverPos=posCounts.maxByOrNull { it.value }?.takeIf { it.value>0 }?.key
+                    val posText=receiverPos?.let{"P$it"} ?: role
+                    "$receiverName ($posText) $n ($pct%)"
                 }
                 val line=if(total==0) "P$r $serverName: χωρίς καταγραφή"
                     else "P$r $serverName σημαδεύει στο $targets"
@@ -1562,7 +1569,7 @@ class MainActivity : AppCompatActivity() {
                             lastTouchedTeam = ti
                             lastTouchedPos = pos
                             lastTouchWasBlock = false
-                            recordReception(player, overrideRole!!, teamRotation(ti), true)
+                            recordReception(player, overrideRole!!, teamRotation(ti), true, pos)
                         } else {
                             captureForUndo("ΥΠΟΔΟΧΗ: $who — ΜΠΡΟΣΤΑ")
                             receptionRecordedThisRally = true
@@ -1579,7 +1586,7 @@ class MainActivity : AppCompatActivity() {
                             lastTouchedTeam = ti
                             lastTouchedPos = pos
                             lastTouchWasBlock = false
-                            recordReception(player, overrideRole!!, teamRotation(ti), false)
+                            recordReception(player, overrideRole!!, teamRotation(ti), false, pos)
                         } else {
                             captureForUndo("ΥΠΟΔΟΧΗ: $who — ΠΙΣΩ")
                             receptionRecordedThisRally = true
