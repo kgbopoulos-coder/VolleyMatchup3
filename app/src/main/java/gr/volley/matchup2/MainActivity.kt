@@ -89,6 +89,7 @@ class MainActivity : AppCompatActivity() {
     private var hostServer: ServerSocket? = null
     private val hostClients = mutableListOf<Socket>()
     private var viewerSocket: Socket? = null
+    private var syncConnected = false
     private var discoverySocket: DatagramSocket? = null
     private val discoveryPort = 50506
 
@@ -169,6 +170,17 @@ class MainActivity : AppCompatActivity() {
         showHome()
     }
 
+    private fun connectionIndicator(): TextView = TextView(this).apply {
+        val connected = when (syncMode) {
+            "VIEWER" -> syncConnected && viewerSocket?.isConnected == true && viewerSocket?.isClosed == false
+            "HOST" -> synchronized(hostClients) { hostClients.any { it.isConnected && !it.isClosed } }
+            else -> false
+        }
+        text = if (connected) "● ΣΥΝΔΕΔΕΜΕΝΟ" else "● ΜΗ ΣΥΝΔΕΔΕΜΕΝΟ"
+        setTextColor(if (connected) Color.rgb(0,150,70) else Color.rgb(210,35,35))
+        textSize = 14f; gravity = Gravity.CENTER; setPadding(0,0,0,10)
+    }
+
     private fun syncStateJson(): String = JSONObject().apply {
         put("team0", teams[0].name); put("team1", teams[1].name)
         put("score0", score[0]); put("score1", score[1]); put("set", currentSet)
@@ -207,6 +219,8 @@ class MainActivity : AppCompatActivity() {
                 while (syncMode == "HOST") {
                     val s = hostServer!!.accept()
                     synchronized(hostClients) { hostClients.add(s) }
+                    syncConnected = true
+                    runOnUiThread { if (currentScreen == "HOME") showHome() }
                     PrintWriter(s.getOutputStream(), true).println(syncStateJson())
                 }
             } catch (_: Exception) {}
@@ -289,12 +303,16 @@ class MainActivity : AppCompatActivity() {
                 viewerSocket?.close()
                 viewerSocket = Socket(ip, 50505)
                 syncMode = "VIEWER"
+                syncConnected = true
                 val reader = BufferedReader(InputStreamReader(viewerSocket!!.getInputStream()))
                 while (syncMode == "VIEWER") {
                     val line = reader.readLine() ?: break
                     applyViewerState(JSONObject(line))
                 }
+                syncConnected = false
+                runOnUiThread { if (syncMode == "VIEWER") showViewer() }
             } catch (_: Exception) {
+                syncConnected = false
                 runOnUiThread { Toast.makeText(this, "VIEWER: Δεν έγινε σύνδεση", Toast.LENGTH_LONG).show() }
             }
         }
@@ -331,6 +349,7 @@ class MainActivity : AppCompatActivity() {
     private fun showViewer() {
         currentScreen = "VIEWER"
         base("VIEWER — LIVE")
+        root.addView(connectionIndicator())
         root.addView(TextView(this).apply {
             text = "ΣΕΤ $currentSet     ${teams[0].name}  ${score[0]} - ${score[1]}  ${teams[1].name}"
             gravity = Gravity.CENTER; textSize = 22f; setPadding(0,0,0,18)
@@ -343,7 +362,7 @@ class MainActivity : AppCompatActivity() {
         root.addView(button("MATCHUP") { showMatchup() })
         root.addView(button("REPORT ΜΟΤΙΒΩΝ") { showPatternsReport() })
         root.addView(button("ΑΠΟΣΥΝΔΕΣΗ") {
-            syncMode = "OFF"; try { viewerSocket?.close() } catch (_: Exception) {}; showHome()
+            syncMode = "OFF"; syncConnected = false; try { viewerSocket?.close() } catch (_: Exception) {}; showHome()
         })
     }
 
@@ -391,6 +410,7 @@ class MainActivity : AppCompatActivity() {
         currentScreen = "HOME"
         base("VOLLEY MATCHUP 2")
         root.addView(TextView(this).apply { text="LIVE ΣΥΝΔΕΣΗ"; textSize=18f; gravity=Gravity.CENTER })
+        if (syncMode == "HOST" || syncMode == "VIEWER") root.addView(connectionIndicator())
         root.addView(button("HOST") { startHost() })
         root.addView(button("VIEWER") { discoverAndConnectViewer() })
         root.addView(button("ROSTER — ΔΙΚΗ ΜΑΣ ΟΜΑΔΑ"){ teamIndex=0; showRoster() })
