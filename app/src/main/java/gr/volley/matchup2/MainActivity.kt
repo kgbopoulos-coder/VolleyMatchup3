@@ -1782,6 +1782,17 @@ class MainActivity : AppCompatActivity() {
             isClickable=true
             setOnClickListener {
                 val who = player.name.takeIf { it.isNotBlank() } ?: overrideRole!!
+                if (ti == 1) {
+                    captureForUndo("ΥΠΟΔΟΧΗ ΑΝΤΙΠΑΛΟΥ: $who")
+                    receptionRecordedThisRally = true
+                    nextAttackContext[ti] = "RECEPTION"
+                    lastTouchedTeam = ti
+                    lastTouchedPos = pos
+                    lastTouchWasBlock = false
+                    Toast.makeText(this@MainActivity, "Υποδοχή αντιπάλου: $who", Toast.LENGTH_SHORT).show()
+                    showCourt()
+                    return@setOnClickListener
+                }
                 AlertDialog.Builder(this@MainActivity)
                     .setTitle("Υποδοχή: $who")
                     .setMessage("Πού στόχευσε το service;")
