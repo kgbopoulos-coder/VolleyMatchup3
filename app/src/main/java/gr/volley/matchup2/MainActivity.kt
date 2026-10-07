@@ -5,6 +5,12 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.content.Intent
 import android.net.Uri
+import java.net.ServerSocket
+import java.net.Socket
+import java.io.BufferedReader
+import java.io.InputStreamReader
+import java.io.PrintWriter
+import kotlin.concurrent.thread
 import android.text.Editable
 import android.text.Html
 import android.text.SpannableStringBuilder
@@ -75,6 +81,10 @@ class MainActivity : AppCompatActivity() {
     private var currentScreen = "HOME"
     private val exportTeamsRequest = 9101
     private val importTeamsRequest = 9102
+    private var syncMode = "OFF"
+    private var hostServer: ServerSocket? = null
+    private val hostClients = mutableListOf<Socket>()
+    private var viewerSocket: Socket? = null
 
     private data class RallySnapshot(
         val selected: Array<IntArray>, val currentRotation: IntArray, val servingTeam: Int, val score: IntArray,
@@ -153,11 +163,132 @@ class MainActivity : AppCompatActivity() {
         showHome()
     }
 
+    private fun syncStateJson(): String = JSONObject().apply {
+        put("team0", teams[0].name); put("team1", teams[1].name)
+        put("score0", score[0]); put("score1", score[1]); put("set", currentSet)
+        put("servingTeam", servingTeam); put("lastAction", lastActionText)
+        put("reception", JSONObject(receptionCounts as Map<*, *>))
+        put("receptionRotation", JSONObject(receptionCountsByRotation as Map<*, *>))
+        put("matchReception", JSONObject(matchReceptionCounts as Map<*, *>))
+        put("matchFront", JSONObject(matchReceptionFrontCounts as Map<*, *>))
+        put("matchBack", JSONObject(matchReceptionBackCounts as Map<*, *>))
+        put("attackContext", JSONObject(opponentAttackPatternByContext as Map<*, *>))
+    }.toString()
+
+    private fun broadcastState() {
+        if (syncMode != "HOST") return
+        val payload = syncStateJson()
+        thread {
+            synchronized(hostClients) {
+                val dead = mutableListOf<Socket>()
+                hostClients.forEach { s ->
+                    try { PrintWriter(s.getOutputStream(), true).println(payload) }
+                    catch (_: Exception) { dead.add(s) }
+                }
+                dead.forEach { try { it.close() } catch (_: Exception) {}; hostClients.removeAll(dead) }
+            }
+        }
+    }
+
+    private fun startHost() {
+        syncMode = "HOST"
+        thread {
+            try {
+                hostServer?.close()
+                hostServer = ServerSocket(50505)
+                runOnUiThread { Toast.makeText(this, "HOST ενεργό στο Hotspot/Wi-Fi", Toast.LENGTH_LONG).show() }
+                while (syncMode == "HOST") {
+                    val s = hostServer!!.accept()
+                    synchronized(hostClients) { hostClients.add(s) }
+                    PrintWriter(s.getOutputStream(), true).println(syncStateJson())
+                }
+            } catch (_: Exception) {}
+        }
+    }
+
+    private fun showViewerConnect() {
+        currentScreen = "VIEWER_CONNECT"
+        base("VIEWER")
+        root.addView(TextView(this).apply {
+            text = "Σύνδεσε και τα δύο κινητά στο ίδιο Hotspot/Wi-Fi και γράψε την IP του HOST."
+            gravity = Gravity.CENTER; textSize = 16f
+        })
+        val ip = EditText(this).apply { hint = "IP HOST π.χ. 192.168.43.1"; setSingleLine() }
+        root.addView(ip)
+        root.addView(button("ΣΥΝΔΕΣΗ") { connectViewer(ip.text.toString().trim()) })
+        root.addView(button("ΠΙΣΩ") { showHome() })
+    }
+
+    private fun connectViewer(ip: String) {
+        if (ip.isBlank()) return
+        thread {
+            try {
+                viewerSocket?.close()
+                viewerSocket = Socket(ip, 50505)
+                syncMode = "VIEWER"
+                val reader = BufferedReader(InputStreamReader(viewerSocket!!.getInputStream()))
+                while (syncMode == "VIEWER") {
+                    val line = reader.readLine() ?: break
+                    applyViewerState(JSONObject(line))
+                }
+            } catch (_: Exception) {
+                runOnUiThread { Toast.makeText(this, "VIEWER: Δεν έγινε σύνδεση", Toast.LENGTH_LONG).show() }
+            }
+        }
+    }
+
+    private fun restoreJsonMap(dst: MutableMap<String, Int>, obj: JSONObject?) {
+        if (obj == null) return
+        dst.clear()
+        obj.keys().forEach { k -> dst[k] = obj.optInt(k) }
+    }
+
+    private fun applyViewerState(j: JSONObject) {
+        runOnUiThread {
+            teams[0].name = j.optString("team0", teams[0].name)
+            teams[1].name = j.optString("team1", teams[1].name)
+            score[0] = j.optInt("score0"); score[1] = j.optInt("score1")
+            currentSet = j.optInt("set", 1); servingTeam = j.optInt("servingTeam", 0)
+            lastActionText = j.optString("lastAction", "")
+            restoreJsonMap(receptionCounts, j.optJSONObject("reception"))
+            restoreJsonMap(receptionCountsByRotation, j.optJSONObject("receptionRotation"))
+            restoreJsonMap(matchReceptionCounts, j.optJSONObject("matchReception"))
+            restoreJsonMap(matchReceptionFrontCounts, j.optJSONObject("matchFront"))
+            restoreJsonMap(matchReceptionBackCounts, j.optJSONObject("matchBack"))
+            restoreJsonMap(opponentAttackPatternByContext, j.optJSONObject("attackContext"))
+            when (currentScreen) {
+                "PATTERN" -> showServicePattern()
+                "ATTACK_PATTERN" -> showAttackPattern()
+                "REPORT" -> showPatternsReport()
+                else -> showViewer()
+            }
+        }
+    }
+
+    private fun showViewer() {
+        currentScreen = "VIEWER"
+        base("VIEWER — LIVE")
+        root.addView(TextView(this).apply {
+            text = "ΣΕΤ $currentSet     ${teams[0].name}  ${score[0]} - ${score[1]}  ${teams[1].name}"
+            gravity = Gravity.CENTER; textSize = 22f; setPadding(0,0,0,18)
+        })
+        root.addView(TextView(this).apply {
+            text = "ΤΕΛΕΥΤΑΙΑ ΕΝΕΡΓΕΙΑ: $lastActionText"; gravity = Gravity.CENTER; textSize = 15f
+        })
+        root.addView(button("ΜΟΤΙΒΟ SERVICE") { showServicePattern() })
+        root.addView(button("ΜΟΤΙΒΟ ΕΠΙΘΕΣΗΣ") { showAttackPattern() })
+        root.addView(button("MATCHUP") { showMatchup() })
+        root.addView(button("REPORT ΜΟΤΙΒΩΝ") { showPatternsReport() })
+        root.addView(button("ΑΠΟΣΥΝΔΕΣΗ") {
+            syncMode = "OFF"; try { viewerSocket?.close() } catch (_: Exception) {}; showHome()
+        })
+    }
+
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         when (currentScreen) {
-            "PATTERN", "ATTACK_PATTERN", "REPORT" -> showCourt()
-            "COURT", "ROSTER", "ROTATION", "MATCHUP" -> showHome()
+            "PATTERN", "ATTACK_PATTERN", "REPORT" -> if (syncMode == "VIEWER") showViewer() else showCourt()
+            "COURT", "ROSTER", "ROTATION", "MATCHUP", "VIEWER", "VIEWER_CONNECT" -> showHome()
             else -> AlertDialog.Builder(this)
                 .setTitle("Έξοδος")
                 .setMessage("Θέλεις να κλείσεις την εφαρμογή;")
@@ -196,6 +327,9 @@ class MainActivity : AppCompatActivity() {
     private fun showHome() {
         currentScreen = "HOME"
         base("VOLLEY MATCHUP 2")
+        root.addView(TextView(this).apply { text="LIVE ΣΥΝΔΕΣΗ"; textSize=18f; gravity=Gravity.CENTER })
+        root.addView(button("HOST") { startHost() })
+        root.addView(button("VIEWER") { showViewerConnect() })
         root.addView(button("ROSTER — ΔΙΚΗ ΜΑΣ ΟΜΑΔΑ"){ teamIndex=0; showRoster() })
         root.addView(button("ROSTER — ΑΝΤΙΠΑΛΗ ΟΜΑΔΑ"){ teamIndex=1; showRoster() })
         root.addView(button("ΑΡΧΙΚΗ ΠΕΡΙΣΤΡΟΦΗ"){ showRotationSetup() })
@@ -666,6 +800,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showCourt() {
+        broadcastState()
         currentScreen = "COURT"
         base("ΓΗΠΕΔΟ")
         root.addView(TextView(this).apply {
