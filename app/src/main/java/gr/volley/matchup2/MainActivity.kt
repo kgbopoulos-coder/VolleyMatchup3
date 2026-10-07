@@ -1411,7 +1411,10 @@ class MainActivity : AppCompatActivity() {
                         ?.name
                         ?.takeIf { it.isNotBlank() }
                         ?: role
-                    val row = "$playerName ($role) $n (${((n * 100.0) / rotTotal).toInt()}%)"
+                    val posCounts = (1..6).associateWith { p -> receptionCountsByRotation["P$rotation|$role|P$p"] ?: 0 }
+                    val receiverPos = posCounts.maxByOrNull { it.value }?.takeIf { it.value > 0 }?.key
+                    val posText = receiverPos?.let { "P$it" } ?: role
+                    val row = "$playerName ($posText) $n (${((n * 100.0) / rotTotal).toInt()}%)"
                     if (maxInRotation > 0 && n == maxInRotation) "<font color='#D00000'><b>$row</b></font>" else row
                 }
             root.addView(TextView(this).apply {
