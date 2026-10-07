@@ -7,6 +7,10 @@ import android.content.Intent
 import android.net.Uri
 import java.net.ServerSocket
 import java.net.Socket
+import java.net.DatagramPacket
+import java.net.DatagramSocket
+import java.net.InetAddress
+import java.net.SocketTimeoutException
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.io.PrintWriter
@@ -85,6 +89,8 @@ class MainActivity : AppCompatActivity() {
     private var hostServer: ServerSocket? = null
     private val hostClients = mutableListOf<Socket>()
     private var viewerSocket: Socket? = null
+    private var discoverySocket: DatagramSocket? = null
+    private val discoveryPort = 50506
 
     private data class RallySnapshot(
         val selected: Array<IntArray>, val currentRotation: IntArray, val servingTeam: Int, val score: IntArray,
@@ -196,13 +202,70 @@ class MainActivity : AppCompatActivity() {
             try {
                 hostServer?.close()
                 hostServer = ServerSocket(50505)
-                runOnUiThread { Toast.makeText(this, "HOST ενεργό στο Hotspot/Wi-Fi", Toast.LENGTH_LONG).show() }
+                startDiscoveryResponder()
+                runOnUiThread { Toast.makeText(this, "HOST ενεργό — αυτόματος εντοπισμός", Toast.LENGTH_LONG).show() }
                 while (syncMode == "HOST") {
                     val s = hostServer!!.accept()
                     synchronized(hostClients) { hostClients.add(s) }
                     PrintWriter(s.getOutputStream(), true).println(syncStateJson())
                 }
             } catch (_: Exception) {}
+        }
+    }
+
+    private fun startDiscoveryResponder() {
+        thread {
+            try {
+                discoverySocket?.close()
+                discoverySocket = DatagramSocket(discoveryPort).apply { broadcast = true }
+                val buffer = ByteArray(256)
+                while (syncMode == "HOST") {
+                    val packet = DatagramPacket(buffer, buffer.size)
+                    discoverySocket!!.receive(packet)
+                    val msg = String(packet.data, 0, packet.length)
+                    if (msg == "VOLLEY_MATCHUP2_FIND_HOST") {
+                        val reply = "VOLLEY_MATCHUP2_HOST:50505".toByteArray()
+                        discoverySocket!!.send(DatagramPacket(reply, reply.size, packet.address, packet.port))
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+    }
+
+    private fun discoverAndConnectViewer() {
+        syncMode = "VIEWER_SEARCH"
+        base("VIEWER — ΑΝΑΖΗΤΗΣΗ HOST")
+        root.addView(ProgressBar(this))
+        root.addView(TextView(this).apply {
+            text = "Αναζήτηση HOST στο ίδιο Hotspot/Wi-Fi…"
+            gravity = Gravity.CENTER; textSize = 16f; setPadding(0,16,0,16)
+        })
+        root.addView(button("ΧΕΙΡΟΚΙΝΗΤΗ IP") { showViewerConnect() })
+        thread {
+            var found: String? = null
+            try {
+                val socket = DatagramSocket().apply { broadcast = true; soTimeout = 1200 }
+                val request = "VOLLEY_MATCHUP2_FIND_HOST".toByteArray()
+                repeat(4) {
+                    if (found == null) {
+                        socket.send(DatagramPacket(request, request.size, InetAddress.getByName("255.255.255.255"), discoveryPort))
+                        try {
+                            val buf = ByteArray(256)
+                            val reply = DatagramPacket(buf, buf.size)
+                            socket.receive(reply)
+                            val msg = String(reply.data, 0, reply.length)
+                            if (msg.startsWith("VOLLEY_MATCHUP2_HOST")) found = reply.address.hostAddress
+                        } catch (_: SocketTimeoutException) {}
+                    }
+                }
+                socket.close()
+            } catch (_: Exception) {}
+            val ip = found
+            if (ip != null) connectViewer(ip)
+            else runOnUiThread {
+                Toast.makeText(this, "Δεν βρέθηκε HOST — δοκίμασε ξανά ή χειροκίνητη IP", Toast.LENGTH_LONG).show()
+                showViewerConnect()
+            }
         }
     }
 
@@ -329,7 +392,7 @@ class MainActivity : AppCompatActivity() {
         base("VOLLEY MATCHUP 2")
         root.addView(TextView(this).apply { text="LIVE ΣΥΝΔΕΣΗ"; textSize=18f; gravity=Gravity.CENTER })
         root.addView(button("HOST") { startHost() })
-        root.addView(button("VIEWER") { showViewerConnect() })
+        root.addView(button("VIEWER") { discoverAndConnectViewer() })
         root.addView(button("ROSTER — ΔΙΚΗ ΜΑΣ ΟΜΑΔΑ"){ teamIndex=0; showRoster() })
         root.addView(button("ROSTER — ΑΝΤΙΠΑΛΗ ΟΜΑΔΑ"){ teamIndex=1; showRoster() })
         root.addView(button("ΑΡΧΙΚΗ ΠΕΡΙΣΤΡΟΦΗ"){ showRotationSetup() })
