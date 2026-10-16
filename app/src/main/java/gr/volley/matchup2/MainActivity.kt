@@ -970,18 +970,23 @@ class MainActivity : AppCompatActivity() {
             val rotationCounts = if (sKey != null) serverSetCounts[sKey] else null
             val rotationTotal = rotationCounts?.values?.sum() ?: 0
             root.addView(patternPanel("1. ΜΟΤΙΒΟ SERVER — ΤΡΕΧΟΥΣΑ ΠΕΡΙΣΤΡΟΦΗ",
-                rotationCounts ?: emptyMap(), rotationTotal, if (rotationTotal == 0) "$serverLabel: χωρίς καταγραφή" else serverLabel))
+                rotationCounts ?: emptyMap(), rotationTotal, if (rotationTotal == 0) "$serverLabel: χωρίς καταγραφή" else serverLabel,
+                if (sKey != null) serverPreviousBackCounts[sKey] else null,
+                if (sKey != null) serverPreviousFrontCounts[sKey] else null))
 
             // 2. Current server across all sets played so far.
             val allServerCounts = if (sKey != null) serverPreviousCounts[sKey] else null
             val allServerTotal = allServerCounts?.values?.sum() ?: 0
             root.addView(patternPanel("2. ΜΟΤΙΒΟ SERVER — ΣΥΝΟΛΟ ΣΕΤ",
-                allServerCounts ?: emptyMap(), allServerTotal, if (allServerTotal == 0) "$serverLabel: χωρίς καταγραφή" else serverLabel))
+                allServerCounts ?: emptyMap(), allServerTotal, if (allServerTotal == 0) "$serverLabel: χωρίς καταγραφή" else serverLabel,
+                if (sKey != null) serverPreviousBackCounts[sKey] else null,
+                if (sKey != null) serverPreviousFrontCounts[sKey] else null))
 
             // 3. Opponent team overall across the match.
             val teamTotal = matchReceptionCounts.values.sum()
             root.addView(patternPanel("3. ΜΟΤΙΒΟ ΑΝΤΙΠΑΛΗΣ ΟΜΑΔΑΣ",
-                matchReceptionCounts, teamTotal, if (teamTotal == 0) "Χωρίς καταγραφή" else null))
+                matchReceptionCounts, teamTotal, if (teamTotal == 0) "Χωρίς καταγραφή" else null,
+                matchReceptionBackCounts, matchReceptionFrontCounts))
         } else {
             root.addView(attackOriginPanel("1. ΜΟΤΙΒΟ ΕΠΙΘΕΣΗΣ ΑΝΤΙΠΑΛΟΥ — ΜΕΤΑ ΑΠΟ ΥΠΟΔΟΧΗ", "RECEPTION"))
             root.addView(attackOriginPanel("2. ΜΟΤΙΒΟ ΕΠΙΘΕΣΗΣ ΑΝΤΙΠΑΛΟΥ — ΜΕΤΑ ΑΠΟ ΑΜΥΝΑ", "DEFENSE"))
@@ -1347,24 +1352,24 @@ class MainActivity : AppCompatActivity() {
         layoutParams = LinearLayout.LayoutParams(-1,-2).apply { setMargins(0,0,0,12) }
     }
 
-    private fun patternHtml(counts: Map<String, Int>, total: Int): String {
+    private fun patternHtml(counts: Map<String, Int>, total: Int, backs: Map<String,Int>? = null, fronts: Map<String,Int>? = null): String {
         val roles = arrayOf("ΑΚ1","ΑΚ2","Λ").sortedByDescending { counts[it] ?: 0 }
         val maxCount = roles.maxOfOrNull { counts[it] ?: 0 } ?: 0
         return roles.joinToString("<br>") { role ->
             val n = counts[role] ?: 0
             val pct = if (total == 0) 0 else ((n * 100.0) / total).toInt()
             val name = teams[0].roster.firstOrNull { it.role == role }?.name?.takeIf { it.isNotBlank() } ?: role
-            val row = "$name — $n ($pct%)"
+            val row = "$name — $n ($pct%)" + if (backs != null && fronts != null) " — πίσω ${backs[role] ?: 0} — μπροστά ${fronts[role] ?: 0}" else ""
             if (maxCount > 0 && n == maxCount) "<font color='#D00000'><b>$row</b></font>" else row
         }
     }
 
-    private fun patternPanel(title: String, counts: Map<String, Int>, total: Int, prefix: String? = null): TextView =
+    private fun patternPanel(title: String, counts: Map<String, Int>, total: Int, prefix: String? = null, backs: Map<String,Int>? = null, fronts: Map<String,Int>? = null): TextView =
         TextView(this).apply {
             val html = buildString {
                 append("<b>").append(title).append("</b>")
                 if (!prefix.isNullOrBlank()) append("<br>").append(prefix)
-                append("<br>").append(patternHtml(counts, total))
+                append("<br>").append(patternHtml(counts, total, backs, fronts))
             }
             text = Html.fromHtml(html, Html.FROM_HTML_MODE_LEGACY)
             gravity = Gravity.CENTER
