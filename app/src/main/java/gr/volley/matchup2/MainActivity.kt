@@ -77,6 +77,8 @@ class MainActivity : AppCompatActivity() {
     private val serverPreviousBackCounts = mutableMapOf<String, MutableMap<String, Int>>()
     private val serverPreviousFrontCounts = mutableMapOf<String, MutableMap<String, Int>>()
     private val serverSetCounts = mutableMapOf<String, MutableMap<String, Int>>()
+    private val serverRotationBackCounts = mutableMapOf<String, MutableMap<String, Int>>()
+    private val serverRotationFrontCounts = mutableMapOf<String, MutableMap<String, Int>>()
     // Opponent attack pattern: rotation|attacker|attackPosition|targetPosition -> count
     private val opponentAttackPattern = mutableMapOf<String, Int>()
     private val opponentAttackPatternByContext = mutableMapOf<String, Int>()
@@ -108,6 +110,8 @@ class MainActivity : AppCompatActivity() {
         val serverPreviousBackCounts: Map<String,Map<String,Int>>,
         val serverPreviousFrontCounts: Map<String,Map<String,Int>>,
         val serverSetCounts: Map<String,Map<String,Int>>,
+        val serverRotationBackCounts: Map<String,Map<String,Int>>,
+        val serverRotationFrontCounts: Map<String,Map<String,Int>>,
         val opponentAttackPattern: Map<String,Int>, val opponentAttackPatternByContext: Map<String,Int>,
         val opponentAttackOrigins: Map<String,Int>
     )
@@ -128,6 +132,7 @@ class MainActivity : AppCompatActivity() {
             HashMap(matchReceptionCounts), HashMap(matchReceptionBackCounts), HashMap(matchReceptionFrontCounts),
             nestedCopy(serverPreviousCounts), nestedCopy(serverPreviousBackCounts),
             nestedCopy(serverPreviousFrontCounts), nestedCopy(serverSetCounts),
+            nestedCopy(serverRotationBackCounts), nestedCopy(serverRotationFrontCounts),
             HashMap(opponentAttackPattern), HashMap(opponentAttackPatternByContext), HashMap(opponentAttackOrigins)
         )
         lastActionText = action
@@ -158,6 +163,7 @@ class MainActivity : AppCompatActivity() {
         restore(matchReceptionBackCounts,s.matchReceptionBackCounts); restore(matchReceptionFrontCounts,s.matchReceptionFrontCounts)
         restoreNested(serverPreviousCounts,s.serverPreviousCounts); restoreNested(serverPreviousBackCounts,s.serverPreviousBackCounts)
         restoreNested(serverPreviousFrontCounts,s.serverPreviousFrontCounts); restoreNested(serverSetCounts,s.serverSetCounts)
+        restoreNested(serverRotationBackCounts,s.serverRotationBackCounts); restoreNested(serverRotationFrontCounts,s.serverRotationFrontCounts)
         restore(opponentAttackPattern,s.opponentAttackPattern); restore(opponentAttackPatternByContext,s.opponentAttackPatternByContext)
         restore(opponentAttackOrigins,s.opponentAttackOrigins)
         val undone = lastActionText
@@ -971,8 +977,8 @@ class MainActivity : AppCompatActivity() {
             val rotationTotal = rotationCounts?.values?.sum() ?: 0
             root.addView(patternPanel("1. ΜΟΤΙΒΟ SERVER — ΤΡΕΧΟΥΣΑ ΠΕΡΙΣΤΡΟΦΗ",
                 rotationCounts ?: emptyMap(), rotationTotal, if (rotationTotal == 0) "$serverLabel: χωρίς καταγραφή" else serverLabel,
-                if (sKey != null) serverPreviousBackCounts[sKey] else null,
-                if (sKey != null) serverPreviousFrontCounts[sKey] else null))
+                if (sKey != null) serverRotationBackCounts[sKey] else null,
+                if (sKey != null) serverRotationFrontCounts[sKey] else null))
 
             // 2. Current server across all sets played so far.
             val allServerCounts = if (sKey != null) serverPreviousCounts[sKey] else null
@@ -1305,6 +1311,8 @@ class MainActivity : AppCompatActivity() {
             if (serverKey != null) {
                 val map = serverPreviousFrontCounts.getOrPut(serverKey) { mutableMapOf() }
                 map[role] = (map[role] ?: 0) + 1
+                val current = serverRotationFrontCounts.getOrPut(serverKey) { mutableMapOf() }
+                current[role] = (current[role] ?: 0) + 1
             }
         } else {
             receptionBackCounts[role] = (receptionBackCounts[role] ?: 0) + 1
@@ -1312,6 +1320,8 @@ class MainActivity : AppCompatActivity() {
             if (serverKey != null) {
                 val map = serverPreviousBackCounts.getOrPut(serverKey) { mutableMapOf() }
                 map[role] = (map[role] ?: 0) + 1
+                val current = serverRotationBackCounts.getOrPut(serverKey) { mutableMapOf() }
+                current[role] = (current[role] ?: 0) + 1
             }
         }
 
@@ -1337,10 +1347,12 @@ class MainActivity : AppCompatActivity() {
         val entries = opponentAttackOrigins.filterKeys { it.startsWith(prefix) }
         val total = entries.values.sum()
         val sorted = entries.entries.sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
+        val maxCount = sorted.maxOfOrNull { it.value } ?: 0
         val rows = if (total == 0) "Χωρίς καταγραφή" else sorted.joinToString("<br>") { (key, n) ->
             val p = key.split("|")
             val pct = (n * 100.0 / total).toInt()
-            "Από ${p[2]} — ${android.text.TextUtils.htmlEncode(p[3])}: $n ($pct%)"
+            val row = "Από ${p[2]} — ${android.text.TextUtils.htmlEncode(p[3])}: $n ($pct%)"
+            if (n == maxCount && maxCount > 0) "<font color='#D00000'><b>$row</b></font>" else row
         }
         text = Html.fromHtml("<b>$title — P$rotation</b><br>$rows", Html.FROM_HTML_MODE_LEGACY)
         gravity = Gravity.CENTER
