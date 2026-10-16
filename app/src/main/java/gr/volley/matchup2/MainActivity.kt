@@ -80,6 +80,7 @@ class MainActivity : AppCompatActivity() {
     // Opponent attack pattern: rotation|attacker|attackPosition|targetPosition -> count
     private val opponentAttackPattern = mutableMapOf<String, Int>()
     private val opponentAttackPatternByContext = mutableMapOf<String, Int>()
+    private val opponentAttackOrigins = mutableMapOf<String, Int>() // context|rotation|zone|player
     private lateinit var root: LinearLayout
     private lateinit var currentScroll: ScrollView
     private var currentScreen = "HOME"
@@ -107,7 +108,8 @@ class MainActivity : AppCompatActivity() {
         val serverPreviousBackCounts: Map<String,Map<String,Int>>,
         val serverPreviousFrontCounts: Map<String,Map<String,Int>>,
         val serverSetCounts: Map<String,Map<String,Int>>,
-        val opponentAttackPattern: Map<String,Int>, val opponentAttackPatternByContext: Map<String,Int>
+        val opponentAttackPattern: Map<String,Int>, val opponentAttackPatternByContext: Map<String,Int>,
+        val opponentAttackOrigins: Map<String,Int>
     )
     private var undoSnapshot: RallySnapshot? = null
     private var lastActionText = "Καμία ενέργεια"
@@ -126,7 +128,7 @@ class MainActivity : AppCompatActivity() {
             HashMap(matchReceptionCounts), HashMap(matchReceptionBackCounts), HashMap(matchReceptionFrontCounts),
             nestedCopy(serverPreviousCounts), nestedCopy(serverPreviousBackCounts),
             nestedCopy(serverPreviousFrontCounts), nestedCopy(serverSetCounts),
-            HashMap(opponentAttackPattern), HashMap(opponentAttackPatternByContext)
+            HashMap(opponentAttackPattern), HashMap(opponentAttackPatternByContext), HashMap(opponentAttackOrigins)
         )
         lastActionText = action
     }
@@ -157,6 +159,7 @@ class MainActivity : AppCompatActivity() {
         restoreNested(serverPreviousCounts,s.serverPreviousCounts); restoreNested(serverPreviousBackCounts,s.serverPreviousBackCounts)
         restoreNested(serverPreviousFrontCounts,s.serverPreviousFrontCounts); restoreNested(serverSetCounts,s.serverSetCounts)
         restore(opponentAttackPattern,s.opponentAttackPattern); restore(opponentAttackPatternByContext,s.opponentAttackPatternByContext)
+        restore(opponentAttackOrigins,s.opponentAttackOrigins)
         val undone = lastActionText
         undoSnapshot=null
         lastActionText="Αναίρεση: $undone"
@@ -191,6 +194,7 @@ class MainActivity : AppCompatActivity() {
         put("matchFront", JSONObject(matchReceptionFrontCounts as Map<*, *>))
         put("matchBack", JSONObject(matchReceptionBackCounts as Map<*, *>))
         put("attackContext", JSONObject(opponentAttackPatternByContext as Map<*, *>))
+        put("attackOrigins", JSONObject(opponentAttackOrigins as Map<*, *>))
         put("receptionBack", JSONObject(receptionBackCounts as Map<*, *>))
         put("receptionFront", JSONObject(receptionFrontCounts as Map<*, *>))
         put("receptionPosition", JSONObject(receptionPositionCounts as Map<*, *>))
@@ -350,6 +354,7 @@ class MainActivity : AppCompatActivity() {
             restoreJsonMap(matchReceptionFrontCounts, j.optJSONObject("matchFront"))
             restoreJsonMap(matchReceptionBackCounts, j.optJSONObject("matchBack"))
             restoreJsonMap(opponentAttackPatternByContext, j.optJSONObject("attackContext"))
+            restoreJsonMap(opponentAttackOrigins, j.optJSONObject("attackOrigins"))
             restoreJsonMap(receptionBackCounts, j.optJSONObject("receptionBack"))
             restoreJsonMap(receptionFrontCounts, j.optJSONObject("receptionFront"))
             restoreJsonMap(receptionPositionCounts, j.optJSONObject("receptionPosition"))
@@ -977,6 +982,9 @@ class MainActivity : AppCompatActivity() {
             val teamTotal = matchReceptionCounts.values.sum()
             root.addView(patternPanel("3. ΜΟΤΙΒΟ ΑΝΤΙΠΑΛΗΣ ΟΜΑΔΑΣ",
                 matchReceptionCounts, teamTotal, if (teamTotal == 0) "Χωρίς καταγραφή" else null))
+        } else {
+            root.addView(attackOriginPanel("1. ΜΟΤΙΒΟ ΕΠΙΘΕΣΗΣ ΑΝΤΙΠΑΛΟΥ — ΜΕΤΑ ΑΠΟ ΥΠΟΔΟΧΗ", "RECEPTION"))
+            root.addView(attackOriginPanel("2. ΜΟΤΙΒΟ ΕΠΙΘΕΣΗΣ ΑΝΤΙΠΑΛΟΥ — ΜΕΤΑ ΑΠΟ ΑΜΥΝΑ", "DEFENSE"))
         }
 
         // Always show the opponent on the upper half of the board.
@@ -1317,6 +1325,27 @@ class MainActivity : AppCompatActivity() {
 
     private fun serverKey(player: Player): String =
         player.number.trim() + "|" + player.name.trim()
+
+    private fun attackOriginPanel(title: String, context: String): TextView = TextView(this).apply {
+        val rotation = teamRotation(1)
+        val prefix = "$context|$rotation|"
+        val entries = opponentAttackOrigins.filterKeys { it.startsWith(prefix) }
+        val total = entries.values.sum()
+        val sorted = entries.entries.sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
+        val rows = if (total == 0) "Χωρίς καταγραφή" else sorted.joinToString("<br>") { (key, n) ->
+            val p = key.split("|")
+            val pct = (n * 100.0 / total).toInt()
+            "Από ${p[2]} — ${android.text.TextUtils.htmlEncode(p[3])}: $n ($pct%)"
+        }
+        text = Html.fromHtml("<b>$title — P$rotation</b><br>$rows", Html.FROM_HTML_MODE_LEGACY)
+        gravity = Gravity.CENTER
+        textSize = 14f
+        setPadding(14, 12, 14, 12)
+        background = GradientDrawable().apply {
+            setColor(Color.argb(22,32,32,95)); setStroke(2, Color.rgb(32,32,95)); cornerRadius = 14f
+        }
+        layoutParams = LinearLayout.LayoutParams(-1,-2).apply { setMargins(0,0,0,12) }
+    }
 
     private fun patternHtml(counts: Map<String, Int>, total: Int): String {
         val roles = arrayOf("ΑΚ1","ΑΚ2","Λ").sortedByDescending { counts[it] ?: 0 }
@@ -1802,6 +1831,10 @@ class MainActivity : AppCompatActivity() {
                     lastAttackerName = who
                     lastAttackerPosition = "P${pos + 1}"
                     lastAttackerContext = nextAttackContext[ti]
+                    if (ti == 1 && (lastAttackerContext == "RECEPTION" || lastAttackerContext == "DEFENSE")) {
+                        val key = "${lastAttackerContext}|${teamRotation(1)}|P${pos + 1}|$who"
+                        opponentAttackOrigins[key] = (opponentAttackOrigins[key] ?: 0) + 1
+                    }
                     nextAttackContext[ti] = null
                     lastActionWasBlock = false
                     rallyBallTeam = 1 - ti
