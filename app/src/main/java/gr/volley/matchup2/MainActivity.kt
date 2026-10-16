@@ -191,6 +191,19 @@ class MainActivity : AppCompatActivity() {
         put("matchFront", JSONObject(matchReceptionFrontCounts as Map<*, *>))
         put("matchBack", JSONObject(matchReceptionBackCounts as Map<*, *>))
         put("attackContext", JSONObject(opponentAttackPatternByContext as Map<*, *>))
+        put("receptionBack", JSONObject(receptionBackCounts as Map<*, *>))
+        put("receptionFront", JSONObject(receptionFrontCounts as Map<*, *>))
+        put("receptionPosition", JSONObject(receptionPositionCounts as Map<*, *>))
+        put("rotation0", currentRotation[0]); put("rotation1", currentRotation[1])
+        for (ti in 0..1) {
+            put("roster$ti", JSONArray().apply {
+                teams[ti].roster.forEach { p ->
+                    put(JSONObject().put("number", p.number).put("name", p.name).put("role", p.role))
+                }
+            })
+            put("selected$ti", JSONArray().apply { selected[ti].forEach { put(it) } })
+            put("p1Formation$ti", JSONArray().apply { p1Formation[ti].forEach { put(it) } })
+        }
     }.toString()
 
     private fun broadcastState() {
@@ -337,6 +350,28 @@ class MainActivity : AppCompatActivity() {
             restoreJsonMap(matchReceptionFrontCounts, j.optJSONObject("matchFront"))
             restoreJsonMap(matchReceptionBackCounts, j.optJSONObject("matchBack"))
             restoreJsonMap(opponentAttackPatternByContext, j.optJSONObject("attackContext"))
+            restoreJsonMap(receptionBackCounts, j.optJSONObject("receptionBack"))
+            restoreJsonMap(receptionFrontCounts, j.optJSONObject("receptionFront"))
+            restoreJsonMap(receptionPositionCounts, j.optJSONObject("receptionPosition"))
+            currentRotation[0] = j.optInt("rotation0", currentRotation[0])
+            currentRotation[1] = j.optInt("rotation1", currentRotation[1])
+            for (ti in 0..1) {
+                j.optJSONArray("roster$ti")?.let { arr ->
+                    for (i in 0 until minOf(arr.length(), teams[ti].roster.size)) {
+                        arr.optJSONObject(i)?.let { p ->
+                            teams[ti].roster[i].number = p.optString("number")
+                            teams[ti].roster[i].name = p.optString("name")
+                            teams[ti].roster[i].role = p.optString("role")
+                        }
+                    }
+                }
+                j.optJSONArray("selected$ti")?.let { arr ->
+                    for (i in selected[ti].indices) selected[ti][i] = arr.optInt(i, -1)
+                }
+                j.optJSONArray("p1Formation$ti")?.let { arr ->
+                    for (i in p1Formation[ti].indices) p1Formation[ti][i] = arr.optInt(i, -1)
+                }
+            }
             when (currentScreen) {
                 "PATTERN" -> showServicePattern()
                 "ATTACK_PATTERN" -> showAttackPattern()
