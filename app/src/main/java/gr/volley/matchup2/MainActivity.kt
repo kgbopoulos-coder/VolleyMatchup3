@@ -1002,8 +1002,8 @@ class MainActivity : AppCompatActivity() {
                 matchReceptionCounts, teamTotal, if (teamTotal == 0) "Χωρίς καταγραφή" else null,
                 matchReceptionBackCounts, matchReceptionFrontCounts))
         } else {
-            root.addView(attackOriginPanel("1. ΜΟΤΙΒΟ ΕΠΙΘΕΣΗΣ ΑΝΤΙΠΑΛΟΥ — ΜΕΤΑ ΑΠΟ ΥΠΟΔΟΧΗ", "RECEPTION"))
-            root.addView(attackOriginPanel("2. ΜΟΤΙΒΟ ΕΠΙΘΕΣΗΣ ΑΝΤΙΠΑΛΟΥ — ΜΕΤΑ ΑΠΟ ΑΜΥΝΑ", "DEFENSE"))
+            root.addView(ourAttackPanel("1. ΔΙΚΗ ΜΑΣ ΕΠΙΘΕΣΗ — SIDE-OUT", "SIDE_OUT"))
+            root.addView(ourAttackPanel("2. ΔΙΚΗ ΜΑΣ ΕΠΙΘΕΣΗ — TRANSITION", "TRANSITION"))
         }
 
         // Always show the opponent on the upper half of the board.
@@ -1307,6 +1307,38 @@ class MainActivity : AppCompatActivity() {
         ourAttackCountThisRally = 0
         Toast.makeText(this, "+1 υποδοχή: $who", Toast.LENGTH_SHORT).show()
         showCourt()
+    }
+
+    private fun ourAttackPanel(title: String, context: String): TextView = TextView(this).apply {
+        val rotation = teamRotation(0)
+        val entries = ourAttackStats.filterKeys { key ->
+            val parts = key.split("|")
+            parts.size == 6 && parts[0] == context && parts[1] == rotation.toString()
+        }
+        val total = entries.values.sum()
+        val groups = entries.entries.groupBy { entry ->
+            entry.key.split("|").let { parts -> "${parts[2]}|${parts[3]}|${parts[4]}" }
+        }
+        val maxCount = groups.values.maxOfOrNull { group -> group.sumOf { it.value } } ?: 0
+        val rows = if (total == 0) "Χωρίς καταγραφή" else groups.entries
+            .sortedByDescending { it.value.sumOf { e -> e.value } }
+            .joinToString("<br>") { (label, group) ->
+                val count = group.sumOf { it.value }
+                val plus = group.filter { it.key.endsWith("|+") }.sumOf { it.value }
+                val selection = count * 100.0 / total
+                val success = plus * 100.0 / count
+                val row = "$label: $count/$total (${"%.1f".format(selection)}%)  +$plus / -${count - plus}  Επιτυχία ${"%.1f".format(success)}%"
+                if (count == maxCount) "<font color='#D00000'><b>$row</b></font>" else row
+            }
+        text = Html.fromHtml("<b>$title — R$rotation</b><br>$rows", Html.FROM_HTML_MODE_LEGACY)
+        gravity = Gravity.CENTER
+        textSize = 15f
+        setPadding(8, 10, 8, 10)
+        background = GradientDrawable().apply {
+            setColor(Color.argb(15, 30, 30, 70))
+            setStroke(2, Color.rgb(32, 32, 95))
+            cornerRadius = 10f
+        }
     }
 
     private fun chooseOurAttack(player: Player, role: String, pos: Int) {
