@@ -1034,6 +1034,8 @@ class MainActivity : AppCompatActivity() {
             .setTitle("Καθαρισμός")
             .setMessage("Να διαγραφούν όλα τα στατιστικά του αγώνα; Τα roster και η αποθηκευμένη P1 δεν θα διαγραφούν.")
             .setPositiveButton("ΝΑΙ") { _, _ ->
+                ourAttackStats.clear()
+                ourAttackCountThisRally = 0
                 receptionCounts.clear()
                 receptionCountsByRotation.clear()
                 receptionBackCounts.clear()
