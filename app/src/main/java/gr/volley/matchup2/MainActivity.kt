@@ -43,6 +43,9 @@ class MainActivity : AppCompatActivity() {
     private var teamIndex = 0
     private var servingTeam = 0 // 0 = δική μας, 1 = αντίπαλη
     private var receptionRecordedThisRally = false
+    private var ourAttackCountThisRally = 0
+    // context|rotation|courtZone|role|player|result
+    private val ourAttackStats = mutableMapOf<String, Int>()
     private var rallyBallTeam: Int? = null
     private var lastActionWasBlock = false
     private var lastAttackerTeam: Int? = null
@@ -454,7 +457,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun showHome() {
         currentScreen = "HOME"
-        base("VOLLEY MATCHUP 2")
+        base("VOLLEY MATCHUP 3")
         root.addView(TextView(this).apply { text="LIVE ΣΥΝΔΕΣΗ"; textSize=18f; gravity=Gravity.CENTER })
         if (syncMode == "HOST" || syncMode == "VIEWER") root.addView(connectionIndicator())
         root.addView(button("HOST") { startHost() })
@@ -929,6 +932,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showCourt() {
+        if (servingTeam == 0 && ourAttackCountThisRally == 0) receptionRecordedThisRally = true
         broadcastState()
         currentScreen = "COURT"
         base("ΓΗΠΕΔΟ")
@@ -1007,23 +1011,6 @@ class MainActivity : AppCompatActivity() {
             textSize = 15f
             setPadding(0,6,0,6)
         })
-        root.addView(button(if (lastTouchWasBlock) "🏐  ΜΠΛΟΚ" else "ΜΠΛΟΚ") {
-            val team = lastAttackerTeam
-            if (team == null) {
-                Toast.makeText(this, "Επίλεξε πρώτα επιτιθέμενη", Toast.LENGTH_SHORT).show()
-            } else {
-                captureForUndo("ΜΠΛΟΚ")
-                // Block touch sends the ball back to the attacking side.
-                rallyBallTeam = team
-                lastActionWasBlock = true
-                lastTouchWasBlock = true
-                lastTouchedTeam = null
-                lastTouchedPos = null
-                Toast.makeText(this, "ΜΠΛΟΚ — η μπάλα παραμένει στην ${teams[team].name}", Toast.LENGTH_SHORT).show()
-                showCourt()
-            }
-        })
-
         // Our team is always shown as a normal six-player court, just like the opponent.
         // Names and roles come from the active rotation and move automatically with rotation.
         addCourtHalf(0, teams[0].name, false)
@@ -1108,6 +1095,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun pointWonBy(winner: Int) {
+        ourAttackCountThisRally = 0
         score[winner]++
         if (winner != servingTeam) {
             rotateTeam(winner)
@@ -1286,8 +1274,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun recordReception(player: Player?, role: String, rotation: Int, front: Boolean, courtPos: Int? = null) {
         val whoForAction = player?.name?.takeIf { it.isNotBlank() } ?: role
-        val depthForAction = if (front) "ΜΠΡΟΣΤΑ" else "ΠΙΣΩ"
-        captureForUndo("ΥΠΟΔΟΧΗ: $whoForAction — $depthForAction")
+        val depthForAction = ""
+        captureForUndo("ΥΠΟΔΟΧΗ: $whoForAction")
         receptionCounts[role] = (receptionCounts[role] ?: 0) + 1
         matchReceptionCounts[role] = (matchReceptionCounts[role] ?: 0) + 1
         val server = currentOpponentServer()
@@ -1305,32 +1293,36 @@ class MainActivity : AppCompatActivity() {
             receptionCountsByRotation[posKey] = (receptionCountsByRotation[posKey] ?: 0) + 1
         }
 
-        if (front) {
-            receptionFrontCounts[role] = (receptionFrontCounts[role] ?: 0) + 1
-            matchReceptionFrontCounts[role] = (matchReceptionFrontCounts[role] ?: 0) + 1
-            if (serverKey != null) {
-                val map = serverPreviousFrontCounts.getOrPut(serverKey) { mutableMapOf() }
-                map[role] = (map[role] ?: 0) + 1
-                val current = serverRotationFrontCounts.getOrPut(serverKey) { mutableMapOf() }
-                current[role] = (current[role] ?: 0) + 1
-            }
-        } else {
-            receptionBackCounts[role] = (receptionBackCounts[role] ?: 0) + 1
-            matchReceptionBackCounts[role] = (matchReceptionBackCounts[role] ?: 0) + 1
-            if (serverKey != null) {
-                val map = serverPreviousBackCounts.getOrPut(serverKey) { mutableMapOf() }
-                map[role] = (map[role] ?: 0) + 1
-                val current = serverRotationBackCounts.getOrPut(serverKey) { mutableMapOf() }
-                current[role] = (current[role] ?: 0) + 1
-            }
-        }
 
         val who = player?.name?.takeIf { it.isNotBlank() } ?: role
         receptionRecordedThisRally = true
         // recordReception() is used for our team reception.
         nextAttackContext[0] = "RECEPTION"
+        ourAttackCountThisRally = 0
         Toast.makeText(this, "+1 υποδοχή: $who", Toast.LENGTH_SHORT).show()
         showCourt()
+    }
+
+    private fun chooseOurAttack(player: Player, role: String, pos: Int) {
+        val who = player.name.ifBlank { role }
+        AlertDialog.Builder(this)
+            .setTitle("Επίθεση: $who — P${pos + 1}")
+            .setPositiveButton("+") { _, _ -> saveOurAttack(who, role, pos, true) }
+            .setNegativeButton("−") { _, _ -> saveOurAttack(who, role, pos, false) }
+            .setNeutralButton("ΑΚΥΡΟ", null)
+            .show()
+    }
+
+    private fun saveOurAttack(who: String, role: String, pos: Int, success: Boolean) {
+        val context = if (servingTeam == 1 && ourAttackCountThisRally == 0) "SIDE_OUT" else "TRANSITION"
+        captureForUndo("ΕΠΙΘΕΣΗ $who: ${if (success) "+" else "−"} ($context)")
+        val key = "$context|${teamRotation(0)}|P${pos + 1}|$role|$who|${if (success) "+" else "-"}"
+        ourAttackStats[key] = (ourAttackStats[key] ?: 0) + 1
+        ourAttackCountThisRally++
+        lastTouchedTeam = 0
+        lastTouchedPos = pos
+        receptionRecordedThisRally = true
+        if (success) pointWonBy(0) else showCourt()
     }
 
     private fun currentOpponentServer(): Player? {
@@ -1616,49 +1608,43 @@ class MainActivity : AppCompatActivity() {
 
     private fun showAttackPattern() {
         currentScreen = "ATTACK_PATTERN"
-        base("ΜΟΤΙΒΟ ΕΠΙΘΕΣΗΣ")
-        if (opponentAttackPatternByContext.isEmpty()) {
+        base("ΜΟΤΙΒΟ ΕΠΙΘΕΣΗΣ — ΔΙΚΗ ΜΑΣ ΟΜΑΔΑ")
+        for (rotation in listOf(1,6,5,4,3,2,0)) {
             root.addView(TextView(this).apply {
-                text = "Δεν υπάρχουν ακόμη καταγεγραμμένες επιθέσεις αντιπάλου."
-                gravity = Gravity.CENTER; textSize = 16f; setPadding(0,20,0,20)
+                text = if (rotation == 0) "ΟΛΟΣ Ο ΑΓΩΝΑΣ" else "ΠΕΡΙΣΤΡΟΦΗ R$rotation"
+                textSize = 20f
+                setPadding(0,18,0,8)
             })
-            root.addView(button("REPORT") { showPatternsReport() })
-            root.addView(button("ΠΙΣΩ") { showCourt() }); return
-        }
-        fun section(context:String, title:String) {
-            root.addView(TextView(this).apply {
-                text=title; textSize=20f; gravity=Gravity.CENTER; setPadding(0,20,0,10)
-            })
-            val rotationOrder=arrayOf(1,6,5,4,3,2)
-            rotationOrder.forEach { rotation ->
-                val prefix="$context|$rotation|"
-                val entries=opponentAttackPatternByContext.filterKeys { it.startsWith(prefix) }
-                if(entries.isNotEmpty()) {
-                    root.addView(TextView(this).apply { text="ΠΕΡΙΣΤΡΟΦΗ P$rotation"; textSize=18f; setPadding(0,12,0,5) })
-                    val grouped=entries.entries.groupBy {
-                        val p=it.key.split("|"); "${p[2]}|${p[3]}"
-                    }
-                    grouped.forEach { (ak,attacks) ->
-                        val ap=ak.split("|"); val attacker=ap[0]; val attackPos=ap[1]
-                        val counts=mutableMapOf<String,Int>()
-                        attacks.forEach { en -> val target=en.key.split("|")[4]; counts[target]=(counts[target]?:0)+en.value }
-                        val total=counts.values.sum(); val max=counts.values.maxOrNull()?:0
-                        val detail=arrayOf("P1","P6","P5","P4","P3","P2").filter{(counts[it]?:0)>0}.joinToString(" — "){ target ->
-                            val n=counts[target]?:0; val pct=if(total==0)0 else (n*100.0/total).toInt()
-                            val row="$target $n/$total ($pct%)"
-                            if(n==max && max>0) "<font color='#D00000'><b>$row</b></font>" else row
-                        }
-                        root.addView(TextView(this).apply {
-                            text=Html.fromHtml("<b>$attacker ($attackPos)</b><br>$detail",Html.FROM_HTML_MODE_LEGACY)
-                            textSize=15f; setPadding(0,6,0,6)
-                        })
-                    }
+            for (context in listOf("SIDE_OUT","TRANSITION","ΣΥΝΟΛΟ")) {
+                val entries = ourAttackStats.filterKeys { key ->
+                    val p = key.split("|")
+                    (rotation == 0 || p[1] == rotation.toString()) &&
+                    (context == "ΣΥΝΟΛΟ" || p[0] == context)
+                }
+                val grouped = entries.entries.groupBy { it.key.split("|").let { p -> "${p[2]}|${p[3]}|${p[4]}" } }
+                val total = entries.values.sum()
+                val maxCount = grouped.values.maxOfOrNull { group -> group.sumOf { it.value } } ?: 0
+                root.addView(TextView(this).apply {
+                    text = context
+                    textSize = 17f
+                    setPadding(0,8,0,4)
+                })
+                if (total == 0) root.addView(TextView(this).apply { text = "Χωρίς καταγραφές" })
+                grouped.forEach { (label, group) ->
+                    val n = group.sumOf { it.value }
+                    val plus = group.filter { it.key.endsWith("|+") }.sumOf { it.value }
+                    val selection = n * 100.0 / total
+                    val success = plus * 100.0 / n
+                    val line = "$label — $n (${"%.1f".format(selection)}%) — +$plus / −${n-plus} — Επιτυχία ${"%.1f".format(success)}%"
+                    root.addView(TextView(this).apply {
+                        text = line
+                        textSize = 15f
+                        if (n == maxCount) setTextColor(Color.RED)
+                        setPadding(0,4,0,4)
+                    })
                 }
             }
         }
-        section("RECEPTION","1. ΕΠΙΘΕΣΗ ΜΕΤΑ ΑΠΟ ΥΠΟΔΟΧΗ")
-        section("DEFENSE","2. ΕΠΙΘΕΣΗ ΜΕΤΑ ΑΠΟ ΑΜΥΝΑ")
-        root.addView(button("REPORT") { showPatternsReport() })
         root.addView(button("ΠΙΣΩ") { showCourt() })
     }
 
@@ -1808,116 +1794,16 @@ class MainActivity : AppCompatActivity() {
         gravity=Gravity.CENTER; textSize=14f; setTextColor(Color.BLACK); setPadding(4,4,4,4)
         background=GradientDrawable().apply { setColor(Color.argb(35,255,255,255)); setStroke(2,Color.WHITE) }
 
-        // After reception, court players act as rally controls.
-        if (!receiving && receptionRecordedThisRally && player != null) {
-            isClickable = true
+        if (ti == 0 && !receiving && player != null && role != "Λ" && role != "Π") {
+            setOnClickListener { chooseOurAttack(player, role ?: "", pos) }
+        }
+        if (ti == 0 && receiving && overrideRole in arrayOf("ΑΚ1","ΑΚ2","Λ") && player != null) {
             setOnClickListener {
-                val who = player.name.takeIf { it.isNotBlank() } ?: (role ?: "Παίκτρια")
-                val actionKind = if (lastAttackerTeam != null && lastAttackerTeam != ti && rallyBallTeam == ti) "ΑΜΥΝΑ" else "ΕΠΙΘΕΣΗ"
-                captureForUndo("$actionKind: $who — P${pos + 1}")
-                lastTouchedTeam = ti
+                lastTouchedTeam = 0
                 lastTouchedPos = pos
-                lastTouchWasBlock = false
-                if (lastAttackerTeam != null && lastAttackerTeam != ti && rallyBallTeam == ti) {
-                    // The defender's court position IS the attack direction.
-                    // If the previous attacker was an opponent, record that target now.
-                    if (lastAttackerTeam == 1 && ti == 0) {
-                        val attacker = lastAttackerName ?: "—"
-                        val attackPos = lastAttackerPosition ?: "—"
-                        val target = "P${pos + 1}"
-                        val rotation = teamRotation(1)
-                        val key = "$rotation|$attacker|$attackPos|$target"
-                        opponentAttackPattern[key] = (opponentAttackPattern[key] ?: 0) + 1
-                        val context = lastAttackerContext ?: "DEFENSE"
-                        val contextKey = "$context|$rotation|$attacker|$attackPos|$target"
-                        opponentAttackPatternByContext[contextKey] = (opponentAttackPatternByContext[contextKey] ?: 0) + 1
-                        Toast.makeText(this@MainActivity, "ΑΜΥΝΑ: $who ($target) — $attacker → $target", Toast.LENGTH_SHORT).show()
-                    } else {
-                        Toast.makeText(this@MainActivity, "ΑΜΥΝΑ: $who", Toast.LENGTH_SHORT).show()
-                    }
-                    rallyBallTeam = ti
-                    nextAttackContext[ti] = "DEFENSE"
-                    lastAttackerTeam = null
-                    lastAttackerName = null
-                    lastAttackerPosition = null
-                    lastAttackerContext = null
-                    lastActionWasBlock = false
-                } else {
-                    // This team has possession: this touch is ATTACK.
-                    lastAttackerTeam = ti
-                    lastAttackerName = who
-                    lastAttackerPosition = "P${pos + 1}"
-                    lastAttackerContext = nextAttackContext[ti]
-                    if (ti == 1 && (lastAttackerContext == "RECEPTION" || lastAttackerContext == "DEFENSE")) {
-                        val key = "${lastAttackerContext}|${teamRotation(1)}|P${pos + 1}|$who"
-                        opponentAttackOrigins[key] = (opponentAttackOrigins[key] ?: 0) + 1
-                    }
-                    nextAttackContext[ti] = null
-                    lastActionWasBlock = false
-                    rallyBallTeam = 1 - ti
-                    Toast.makeText(this@MainActivity, "ΕΠΙΘΕΣΗ: $who (P${pos + 1})", Toast.LENGTH_SHORT).show()
-                }
-                showCourt()
+                recordReception(player, overrideRole!!, teamRotation(0), false, pos)
             }
         }
 
-        // Tap a receiver, then choose whether the serve target was FRONT or BACK.
-        // Only after that choice is the reception recorded and the team moves to attack.
-        if (receiving && overrideRole in arrayOf("ΑΚ1","ΑΚ2","Λ") && player != null) {
-            isClickable=true
-            setOnClickListener {
-                val who = player.name.takeIf { it.isNotBlank() } ?: overrideRole!!
-                if (ti == 1) {
-                    captureForUndo("ΥΠΟΔΟΧΗ ΑΝΤΙΠΑΛΟΥ: $who")
-                    receptionRecordedThisRally = true
-                    nextAttackContext[ti] = "RECEPTION"
-                    lastTouchedTeam = ti
-                    lastTouchedPos = pos
-                    lastTouchWasBlock = false
-                    Toast.makeText(this@MainActivity, "Υποδοχή αντιπάλου: $who", Toast.LENGTH_SHORT).show()
-                    showCourt()
-                    return@setOnClickListener
-                }
-                AlertDialog.Builder(this@MainActivity)
-                    .setTitle("Υποδοχή: $who")
-                    .setMessage("Πού στόχευσε το service;")
-                    .setPositiveButton("ΜΠΡΟΣΤΑ") { _, _ ->
-                        if (ti == 0) {
-                            lastTouchedTeam = ti
-                            lastTouchedPos = pos
-                            lastTouchWasBlock = false
-                            recordReception(player, overrideRole!!, teamRotation(ti), true, pos)
-                        } else {
-                            captureForUndo("ΥΠΟΔΟΧΗ: $who — ΜΠΡΟΣΤΑ")
-                            receptionRecordedThisRally = true
-                            nextAttackContext[ti] = "RECEPTION"
-                            lastTouchedTeam = ti
-                            lastTouchedPos = pos
-                            lastTouchWasBlock = false
-                            Toast.makeText(this@MainActivity, "Υποδοχή: $who — ΜΠΡΟΣΤΑ", Toast.LENGTH_SHORT).show()
-                            showCourt()
-                        }
-                    }
-                    .setNegativeButton("ΠΙΣΩ") { _, _ ->
-                        if (ti == 0) {
-                            lastTouchedTeam = ti
-                            lastTouchedPos = pos
-                            lastTouchWasBlock = false
-                            recordReception(player, overrideRole!!, teamRotation(ti), false, pos)
-                        } else {
-                            captureForUndo("ΥΠΟΔΟΧΗ: $who — ΠΙΣΩ")
-                            receptionRecordedThisRally = true
-                            nextAttackContext[ti] = "RECEPTION"
-                            lastTouchedTeam = ti
-                            lastTouchedPos = pos
-                            lastTouchWasBlock = false
-                            Toast.makeText(this@MainActivity, "Υποδοχή: $who — ΠΙΣΩ", Toast.LENGTH_SHORT).show()
-                            showCourt()
-                        }
-                    }
-                    .setNeutralButton("ΑΚΥΡΟ", null)
-                    .show()
-            }
-        }
     }
 }
