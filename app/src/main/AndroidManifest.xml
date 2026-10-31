@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
-    <application android:theme="@style/AppTheme" android:label="Volley Matchup 2" android:icon="@drawable/ic_scoreboard" android:roundIcon="@drawable/ic_scoreboard">
+    <application android:theme="@style/AppTheme" android:label="Volley Matchup 3" android:icon="@drawable/ic_scoreboard" android:roundIcon="@drawable/ic_scoreboard">
         <activity
             android:name=".MainActivity"
             android:screenOrientation="portrait"
