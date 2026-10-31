@@ -10,8 +10,8 @@ android {
         applicationId = "gr.volley.matchup3"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
-        versionName = "3.0.0"
+        versionCode = 3
+        versionName = "3.0.1"
     }
 
     compileOptions {
