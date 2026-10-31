@@ -116,7 +116,8 @@ class MainActivity : AppCompatActivity() {
         val serverRotationBackCounts: Map<String,Map<String,Int>>,
         val serverRotationFrontCounts: Map<String,Map<String,Int>>,
         val opponentAttackPattern: Map<String,Int>, val opponentAttackPatternByContext: Map<String,Int>,
-        val opponentAttackOrigins: Map<String,Int>
+        val opponentAttackOrigins: Map<String,Int>,
+        val ourAttackStats: Map<String,Int>, val ourAttackCountThisRally: Int
     )
     private var undoSnapshot: RallySnapshot? = null
     private var lastActionText = "Καμία ενέργεια"
@@ -136,7 +137,8 @@ class MainActivity : AppCompatActivity() {
             nestedCopy(serverPreviousCounts), nestedCopy(serverPreviousBackCounts),
             nestedCopy(serverPreviousFrontCounts), nestedCopy(serverSetCounts),
             nestedCopy(serverRotationBackCounts), nestedCopy(serverRotationFrontCounts),
-            HashMap(opponentAttackPattern), HashMap(opponentAttackPatternByContext), HashMap(opponentAttackOrigins)
+            HashMap(opponentAttackPattern), HashMap(opponentAttackPatternByContext), HashMap(opponentAttackOrigins),
+            HashMap(ourAttackStats), ourAttackCountThisRally
         )
         lastActionText = action
     }
@@ -169,6 +171,8 @@ class MainActivity : AppCompatActivity() {
         restoreNested(serverRotationBackCounts,s.serverRotationBackCounts); restoreNested(serverRotationFrontCounts,s.serverRotationFrontCounts)
         restore(opponentAttackPattern,s.opponentAttackPattern); restore(opponentAttackPatternByContext,s.opponentAttackPatternByContext)
         restore(opponentAttackOrigins,s.opponentAttackOrigins)
+        restore(ourAttackStats,s.ourAttackStats)
+        ourAttackCountThisRally = s.ourAttackCountThisRally
         val undone = lastActionText
         undoSnapshot=null
         lastActionText="Αναίρεση: $undone"
