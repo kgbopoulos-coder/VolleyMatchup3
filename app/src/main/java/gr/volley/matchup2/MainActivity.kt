@@ -1001,10 +1001,10 @@ class MainActivity : AppCompatActivity() {
             root.addView(patternPanel("3. ΜΟΤΙΒΟ ΑΝΤΙΠΑΛΗΣ ΟΜΑΔΑΣ",
                 matchReceptionCounts, teamTotal, if (teamTotal == 0) "Χωρίς καταγραφή" else null,
                 matchReceptionBackCounts, matchReceptionFrontCounts))
-        } else {
-            root.addView(ourAttackPanel("1. ΔΙΚΗ ΜΑΣ ΕΠΙΘΕΣΗ — SIDE-OUT", "SIDE_OUT"))
-            root.addView(ourAttackPanel("2. ΔΙΚΗ ΜΑΣ ΕΠΙΘΕΣΗ — TRANSITION", "TRANSITION"))
         }
+        // Our attack patterns remain visible regardless of which team serves.
+        root.addView(ourAttackPanel("1. ΔΙΚΗ ΜΑΣ ΕΠΙΘΕΣΗ — SIDE-OUT", "SIDE_OUT"))
+        root.addView(ourAttackPanel("2. ΔΙΚΗ ΜΑΣ ΕΠΙΘΕΣΗ — TRANSITION", "TRANSITION"))
 
         // Always show the opponent on the upper half of the board.
         addCourtHalf(1, teams[1].name, true)
@@ -1317,7 +1317,7 @@ class MainActivity : AppCompatActivity() {
         }
         val total = entries.values.sum()
         val groups = entries.entries.groupBy { entry ->
-            entry.key.split("|").let { parts -> "${parts[2]}|${parts[3]}|${parts[4]}" }
+            entry.key.split("|").let { parts -> "${parts[2]}|${parts[4]}" }
         }
         val maxCount = groups.values.maxOfOrNull { group -> group.sumOf { it.value } } ?: 0
         val rows = if (total == 0) "Χωρίς καταγραφή" else groups.entries
@@ -1659,7 +1659,7 @@ class MainActivity : AppCompatActivity() {
                     (rotation == 0 || p[1] == rotation.toString()) &&
                     (context == "ΣΥΝΟΛΟ" || p[0] == context)
                 }
-                val grouped = entries.entries.groupBy { it.key.split("|").let { p -> "${p[2]}|${p[3]}|${p[4]}" } }
+                val grouped = entries.entries.groupBy { it.key.split("|").let { p -> "${p[2]}|${p[4]}" } }
                 val total = entries.values.sum()
                 val maxCount = grouped.values.maxOfOrNull { group -> group.sumOf { it.value } } ?: 0
                 root.addView(TextView(this).apply {
