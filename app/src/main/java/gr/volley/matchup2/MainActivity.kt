@@ -1005,6 +1005,7 @@ class MainActivity : AppCompatActivity() {
         // Our attack patterns remain visible regardless of which team serves.
         root.addView(ourAttackPanel("1. ΔΙΚΗ ΜΑΣ ΕΠΙΘΕΣΗ — SIDE-OUT", "SIDE_OUT"))
         root.addView(ourAttackPanel("2. ΔΙΚΗ ΜΑΣ ΕΠΙΘΕΣΗ — TRANSITION", "TRANSITION"))
+        root.addView(attackRecommendationPanel())
 
         // Always show the opponent on the upper half of the board.
         addCourtHalf(1, teams[1].name, true)
@@ -1307,6 +1308,53 @@ class MainActivity : AppCompatActivity() {
         ourAttackCountThisRally = 0
         Toast.makeText(this, "+1 υποδοχή: $who", Toast.LENGTH_SHORT).show()
         showCourt()
+    }
+
+    // A ranking score, not a predicted probability of winning the rally.
+    // 70% smoothed attack success + 30% evidence/sample confidence.
+    private fun attackRecommendationPanel(): TextView = TextView(this).apply {
+        val rotation = teamRotation(0)
+        val context = if (servingTeam == 1 && !receptionRecordedThisRally) "SIDE_OUT"
+                      else if (servingTeam == 1 && ourAttackCountThisRally == 0) "SIDE_OUT"
+                      else "TRANSITION"
+        val label = if (context == "SIDE_OUT") "SIDE-OUT" else "TRANSITION"
+        val rows = ourAttackStats.entries.filter { (key, _) ->
+            val parts = key.split("|")
+            parts.size == 6 && parts[0] == context && parts[1] == rotation.toString()
+        }.groupBy { (key, _) ->
+            val parts = key.split("|")
+            "${parts[2]}|${parts[4]}"
+        }.map { (who, events) ->
+            val n = events.sumOf { it.value }
+            val plus = events.filter { it.key.endsWith("|+") }.sumOf { it.value }
+            val smoothed = (plus + 2.0) / (n + 4.0)
+            val evidence = n.toDouble() / (n + 5.0)
+            val score = 100.0 * (0.7 * smoothed + 0.3 * evidence)
+            Triple(who, n to plus, score)
+        }.sortedWith(compareByDescending<Triple<String, Pair<Int, Int>, Double>> { it.third }
+            .thenByDescending { it.second.first }).take(3)
+        val content = if (rows.isEmpty()) "Δεν υπάρχουν ακόμη δεδομένα $label στην R$rotation."
+                      else rows.mapIndexed { index, (who, counts, score) ->
+                          val name = android.text.TextUtils.htmlEncode(who.replace("|", " — "))
+                          val n = counts.first
+                          val plus = counts.second
+                          val caution = if (n < 5) " · περιορισμένα δεδομένα" else ""
+                          "${index + 1}. $name — ${"%.1f".format(score)}% · +$plus/$n$caution"
+                      }.joinToString("<br>")
+        text = Html.fromHtml(
+            "<b>ΠΡΟΤΑΣΗ ΕΠΙΘΕΣΗΣ — R$rotation ($label)</b><br>$content<br>" +
+            "<small>Βαθμός καταλληλότητας, όχι πιθανότητα πόντου. " +
+            "70% εξομαλυμένη επιτυχία, 30% αξιοπιστία δείγματος.</small>",
+            Html.FROM_HTML_MODE_LEGACY
+        )
+        gravity = Gravity.CENTER
+        textSize = 15f
+        setPadding(8, 12, 8, 12)
+        background = GradientDrawable().apply {
+            setColor(Color.argb(22, 30, 120, 80))
+            setStroke(2, Color.rgb(55, 110, 80))
+            cornerRadius = 10f
+        }
     }
 
     private fun ourAttackPanel(title: String, context: String): TextView = TextView(this).apply {
