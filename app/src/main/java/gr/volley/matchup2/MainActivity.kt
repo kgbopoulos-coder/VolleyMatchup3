@@ -1320,6 +1320,11 @@ class MainActivity : AppCompatActivity() {
             entry.key.split("|").let { parts -> "${parts[2]}|${parts[4]}" }
         }
         val maxCount = groups.values.maxOfOrNull { group -> group.sumOf { it.value } } ?: 0
+        val maxSuccess = groups.values.maxOfOrNull { group ->
+            val n = group.sumOf { it.value }
+            val plus = group.filter { it.key.endsWith("|+") }.sumOf { it.value }
+            if (n == 0) 0.0 else plus.toDouble() / n
+        } ?: 0.0
         val rows = if (total == 0) "Χωρίς καταγραφή" else groups.entries
             .sortedByDescending { it.value.sumOf { e -> e.value } }
             .joinToString("<br>") { (label, group) ->
@@ -1327,8 +1332,11 @@ class MainActivity : AppCompatActivity() {
                 val plus = group.filter { it.key.endsWith("|+") }.sumOf { it.value }
                 val selection = count * 100.0 / total
                 val success = plus * 100.0 / count
-                val row = "$label: $count/$total (${"%.1f".format(selection)}%)  +$plus / -${count - plus}  Επιτυχία ${"%.1f".format(success)}%"
-                if (count == maxCount) "<font color='#D00000'><b>$row</b></font>" else row
+                val selectPct = "${"%.1f".format(selection)}%"
+                val successPct = "${"%.1f".format(success)}%"
+                val selectionHtml = if (count == maxCount) "<font color='#D00000'><b>$selectPct</b></font>" else selectPct
+                val successHtml = if (plus > 0 && plus.toDouble() / count == maxSuccess) "<font color='#D00000'><b>$successPct</b></font>" else successPct
+                "${android.text.TextUtils.htmlEncode(label.replace("|", " "))}: $count/$total ($selectionHtml)  +$plus / -${count - plus}  Επιτυχία $successHtml"
             }
         text = Html.fromHtml("<b>$title — R$rotation</b><br>$rows", Html.FROM_HTML_MODE_LEGACY)
         gravity = Gravity.CENTER
@@ -1662,6 +1670,11 @@ class MainActivity : AppCompatActivity() {
                 val grouped = entries.entries.groupBy { it.key.split("|").let { p -> "${p[2]}|${p[4]}" } }
                 val total = entries.values.sum()
                 val maxCount = grouped.values.maxOfOrNull { group -> group.sumOf { it.value } } ?: 0
+                val maxSuccess = grouped.values.maxOfOrNull { group ->
+                    val n = group.sumOf { it.value }
+                    val plus = group.filter { it.key.endsWith("|+") }.sumOf { it.value }
+                    if (n == 0) 0.0 else plus.toDouble() / n
+                } ?: 0.0
                 root.addView(TextView(this).apply {
                     text = context
                     textSize = 17f
@@ -1673,11 +1686,15 @@ class MainActivity : AppCompatActivity() {
                     val plus = group.filter { it.key.endsWith("|+") }.sumOf { it.value }
                     val selection = n * 100.0 / total
                     val success = plus * 100.0 / n
-                    val line = "$label — $n (${"%.1f".format(selection)}%) — +$plus / −${n-plus} — Επιτυχία ${"%.1f".format(success)}%"
+                    val selectPct = "${"%.1f".format(selection)}%"
+                    val successPct = "${"%.1f".format(success)}%"
+                    val selectionHtml = if (n == maxCount) "<font color='#D00000'><b>$selectPct</b></font>" else selectPct
+                    val successHtml = if (plus > 0 && plus.toDouble() / n == maxSuccess) "<font color='#D00000'><b>$successPct</b></font>" else successPct
+                    val safeName = android.text.TextUtils.htmlEncode(label.replace("|", " "))
+                    val line = "$safeName — $n ($selectionHtml) — +$plus / −${n-plus} — Επιτυχία $successHtml"
                     root.addView(TextView(this).apply {
-                        text = line
+                        text = Html.fromHtml(line, Html.FROM_HTML_MODE_LEGACY)
                         textSize = 15f
-                        if (n == maxCount) setTextColor(Color.RED)
                         setPadding(0,4,0,4)
                     })
                 }
