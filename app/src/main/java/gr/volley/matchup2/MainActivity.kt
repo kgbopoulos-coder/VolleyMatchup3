@@ -539,6 +539,7 @@ class MainActivity : AppCompatActivity() {
         root.addView(button("ΜΟΤΙΒΟ ΕΠΙΘΕΣΗΣ") { showAttackPattern() })
         root.addView(button("MATCHUP") { showMatchup() })
         root.addView(button("REPORT ΜΟΤΙΒΩΝ") { showPatternsReport() })
+        root.addView(button("ΕΚΤΥΠΩΣΗ / ΑΠΟΘΗΚΕΥΣΗ PDF") { printMatchReport() })
         root.addView(button("ΑΠΟΣΥΝΔΕΣΗ") {
             syncMode = "OFF"; syncConnected = false; try { viewerSocket?.close() } catch (_: Exception) {}; showHome()
         })
@@ -1741,6 +1742,51 @@ class MainActivity : AppCompatActivity() {
 
         root.addView(button("REPORT"){ showPatternsReport() })
         root.addView(button("ΠΙΣΩ"){ showCourt() })
+    }
+
+    private fun printMatchReport() {
+        val escape: (String) -> String = { android.text.TextUtils.htmlEncode(it) }
+        val html = StringBuilder()
+        html.append("<html><head><meta charset='UTF-8'><style>")
+        html.append("body{font-family:sans-serif;color:#222;padding:18px}h1{font-size:22px}h2{font-size:17px;margin-top:20px}table{border-collapse:collapse;width:100%;font-size:12px}td,th{border:1px solid #bbb;padding:6px;text-align:left}th{background:#eee}.small{color:#555;font-size:11px}")
+        html.append("</style></head><body>")
+        html.append("<h1>VOLLEY MATCHUP 3 — REPORT ΑΓΩΝΑ</h1>")
+        html.append("<p>${escape(teams[0].name)} ${score[0]} - ${score[1]} ${escape(teams[1].name)} · ΣΕΤ $currentSet</p>")
+        html.append("<h2>ΕΠΙΘΕΣΕΙΣ — SIDE-OUT / TRANSITION</h2>")
+        html.append("<table><tr><th>Περιστροφή</th><th>Φάση</th><th>Ζώνη</th><th>Παίκτρια</th><th>Επιθέσεις</th><th>+</th><th>−</th><th>Επιτυχία</th></tr>")
+        val grouped = ourAttackStats.entries.groupBy { (key, _) ->
+            key.split("|").take(5).joinToString("|")
+        }
+        for ((key, entries) in grouped.toSortedMap()) {
+            val parts = key.split("|")
+            if (parts.size < 5) continue
+            val n = entries.sumOf { it.value }
+            val plus = entries.filter { it.key.endsWith("|+") }.sumOf { it.value }
+            val pct = if (n == 0) 0.0 else 100.0 * plus / n
+            html.append("<tr><td>R${escape(parts[1])}</td><td>${escape(parts[0])}</td><td>${escape(parts[2])}</td><td>${escape(parts[4])}</td><td>$n</td><td>$plus</td><td>${n - plus}</td><td>${"%.1f".format(java.util.Locale.US,pct)}%</td></tr>")
+        }
+        html.append("</table><h2>ΥΠΟΔΟΧΕΣ ΑΝΑ ΠΕΡΙΣΤΡΟΦΗ</h2>")
+        html.append("<table><tr><th>Περιστροφή</th><th>Παίκτρια / ρόλος</th><th>Υποδοχές</th></tr>")
+        for ((key, n) in receptionCountsByRotation.toSortedMap()) {
+            val parts = key.split("|")
+            val role = parts.getOrNull(1) ?: ""
+            val name = teams[0].roster.firstOrNull { it.role == role }?.name?.takeIf { it.isNotBlank() } ?: role
+            html.append("<tr><td>${escape(parts[0])}</td><td>${escape(name)}</td><td>$n</td></tr>")
+        }
+        html.append("</table><p class='small'>Τα δεδομένα προέρχονται από τις καταγραφές της εφαρμογής. Επιλέξτε «Αποθήκευση ως PDF» στο μενού εκτύπωσης.</p></body></html>")
+        val webView = android.webkit.WebView(this)
+        webView.settings.defaultTextEncodingName = "UTF-8"
+        val printManager = getSystemService(android.content.Context.PRINT_SERVICE) as android.print.PrintManager
+        webView.webViewClient = object : android.webkit.WebViewClient() {
+            override fun onPageFinished(view: android.webkit.WebView?, url: String?) {
+                printManager.print("VolleyMatchup3_Report_Set$currentSet",
+                    webView.createPrintDocumentAdapter("VolleyMatchup3_Report"),
+                    android.print.PrintAttributes.Builder()
+                        .setMediaSize(android.print.PrintAttributes.MediaSize.ISO_A4)
+                        .build())
+            }
+        }
+        webView.loadDataWithBaseURL(null, html.toString(), "text/html", "UTF-8", null)
     }
 
     private fun showPatternsReport() {
