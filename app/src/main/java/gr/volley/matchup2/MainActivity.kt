@@ -1786,13 +1786,21 @@ class MainActivity : AppCompatActivity() {
         }
         html.append("<p>Κόκκινο: υψηλότερη επιλογή και υψηλότερη θετική επιτυχία, ανεξάρτητα.</p>")
         html.append("<h2>ΥΠΟΔΟΧΕΣ ΑΝΑ ΠΕΡΙΣΤΡΟΦΗ</h2>")
-        html.append("<table><tr><th>Περιστροφή</th><th>Παίκτρια / ρόλος</th><th>Υποδοχές</th></tr>")
-        for ((key, n) in receptionCountsByRotation.toSortedMap()) {
-            val parts = key.split("|")
-            val role = parts.getOrNull(1) ?: ""
-            val name = teams[0].roster.firstOrNull { it.role == role }?.name?.takeIf { it.isNotBlank() } ?: role
-            html.append("<tr><td>${escape(parts[0])}</td><td>${escape(name)}</td><td>$n</td></tr>")
+        html.append("<table><tr><th>Περιστροφή</th><th>Παίκτρια</th><th>Υποδοχές</th><th>Ποσοστό</th></tr>")
+        for (rotation in listOf(1,6,5,4,3,2)) {
+            val receptions = listOf("ΑΚ1","ΑΚ2","Λ").map { role ->
+                val name = teams[0].roster.firstOrNull { it.role == role }?.name?.takeIf { it.isNotBlank() } ?: role
+                name to (receptionCountsByRotation["P$rotation|$role"] ?: 0)
+            }.groupBy { it.first }.map { (name, values) -> name to values.sumOf { it.second } }
+            val total = receptions.sumOf { it.second }
+            val maximum = receptions.maxOfOrNull { it.second } ?: 0
+            for ((name, n) in receptions.filter { it.second > 0 }.sortedByDescending { it.second }) {
+                val pct = "%.1f%%".format(java.util.Locale.US, n * 100.0 / total)
+                val pctHtml = if (n == maximum) "<b style='color:#c00000'>$pct</b>" else pct
+                html.append("<tr><td>R$rotation</td><td>${escape(name)}</td><td>$n</td><td>$pctHtml</td></tr>")
+            }
         }
+
         html.append("</table><p class='small'>Τα δεδομένα προέρχονται από τις καταγραφές της εφαρμογής. Επιλέξτε «Αποθήκευση ως PDF» στο μενού εκτύπωσης.</p></body></html>")
         val webView = android.webkit.WebView(this)
         webView.settings.defaultTextEncodingName = "UTF-8"
