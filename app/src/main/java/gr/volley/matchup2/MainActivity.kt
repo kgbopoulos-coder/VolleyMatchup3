@@ -180,9 +180,134 @@ class MainActivity : AppCompatActivity() {
         showCourt()
     }
 
+    // Match data are stored privately on this device, separately from VolleyMatchup2.
+    private fun saveMatchData() {
+        try {
+            val data = JSONObject()
+            data.put("set", currentSet)
+            data.put("score", org.json.JSONArray(score.toList()))
+            data.put("rotation", org.json.JSONArray(currentRotation.toList()))
+            data.put("serving", servingTeam)
+            data.put("receivingDone", receptionRecordedThisRally)
+            data.put("attackCount", ourAttackCountThisRally)
+            data.put("selected0", org.json.JSONArray(selected[0].toList()))
+            data.put("selected1", org.json.JSONArray(selected[1].toList()))
+            data.put("p1_0", org.json.JSONArray(p1Formation[0].toList()))
+            data.put("p1_1", org.json.JSONArray(p1Formation[1].toList()))
+            data.put("teams", org.json.JSONArray(listOf(teams[0].name, teams[1].name)))
+            val maps = JSONObject()
+            val stats = mapOf(
+                "ourAttackStats" to ourAttackStats,
+                "receptionCounts" to receptionCounts,
+                "receptionCountsByRotation" to receptionCountsByRotation,
+                "receptionBackCounts" to receptionBackCounts,
+                "receptionFrontCounts" to receptionFrontCounts,
+                "receptionPositionCounts" to receptionPositionCounts,
+                "matchReceptionCounts" to matchReceptionCounts,
+                "matchReceptionBackCounts" to matchReceptionBackCounts,
+                "matchReceptionFrontCounts" to matchReceptionFrontCounts,
+                "opponentAttackPattern" to opponentAttackPattern,
+                "opponentAttackPatternByContext" to opponentAttackPatternByContext,
+                "opponentAttackOrigins" to opponentAttackOrigins,
+                "previousSetCounts" to previousSetCounts,
+                "completedSetCounts" to completedSetCounts
+            )
+            stats.forEach { (name, map) -> maps.put(name, JSONObject(map as Map<*, *>)) }
+            data.put("maps", maps)
+            val nested = JSONObject()
+            mapOf(
+                "serverPreviousCounts" to serverPreviousCounts,
+                "serverPreviousBackCounts" to serverPreviousBackCounts,
+                "serverPreviousFrontCounts" to serverPreviousFrontCounts,
+                "serverSetCounts" to serverSetCounts,
+                "serverRotationBackCounts" to serverRotationBackCounts,
+                "serverRotationFrontCounts" to serverRotationFrontCounts
+            ).forEach { (name, map) ->
+                val obj = JSONObject()
+                map.forEach { (key, counts) -> obj.put(key, JSONObject(counts as Map<*, *>)) }
+                nested.put(name, obj)
+            }
+            data.put("nested", nested)
+            getSharedPreferences("volley_matchup3_match", MODE_PRIVATE).edit()
+                .putString("current", data.toString()).commit()
+        } catch (_: Exception) {
+            Toast.makeText(this, "Αποτυχία αποθήκευσης αγώνα", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun restoreMatchData() {
+        val raw = getSharedPreferences("volley_matchup3_match", MODE_PRIVATE)
+            .getString("current", null) ?: return
+        try {
+            val data = JSONObject(raw)
+            currentSet = data.optInt("set", 1)
+            servingTeam = data.optInt("serving", 0)
+            receptionRecordedThisRally = data.optBoolean("receivingDone", false)
+            ourAttackCountThisRally = data.optInt("attackCount", 0)
+            fun loadArray(key: String, target: IntArray) {
+                val values = data.optJSONArray(key) ?: return
+                for (i in target.indices) if (i < values.length()) target[i] = values.optInt(i, target[i])
+            }
+            loadArray("score", score)
+            loadArray("rotation", currentRotation)
+            loadArray("selected0", selected[0]); loadArray("selected1", selected[1])
+            loadArray("p1_0", p1Formation[0]); loadArray("p1_1", p1Formation[1])
+            val names = data.optJSONArray("teams")
+            if (names != null && names.length() >= 2) {
+                teams[0].name = names.optString(0, teams[0].name)
+                teams[1].name = names.optString(1, teams[1].name)
+            }
+            val maps = data.optJSONObject("maps")
+            fun loadMap(key: String, target: MutableMap<String, Int>) {
+                val obj = maps?.optJSONObject(key) ?: return
+                target.clear()
+                obj.keys().forEach { name -> target[name] = obj.optInt(name) }
+            }
+            loadMap("ourAttackStats", ourAttackStats)
+            loadMap("receptionCounts", receptionCounts)
+            loadMap("receptionCountsByRotation", receptionCountsByRotation)
+            loadMap("receptionBackCounts", receptionBackCounts)
+            loadMap("receptionFrontCounts", receptionFrontCounts)
+            loadMap("receptionPositionCounts", receptionPositionCounts)
+            loadMap("matchReceptionCounts", matchReceptionCounts)
+            loadMap("matchReceptionBackCounts", matchReceptionBackCounts)
+            loadMap("matchReceptionFrontCounts", matchReceptionFrontCounts)
+            loadMap("opponentAttackPattern", opponentAttackPattern)
+            loadMap("opponentAttackPatternByContext", opponentAttackPatternByContext)
+            loadMap("opponentAttackOrigins", opponentAttackOrigins)
+            loadMap("previousSetCounts", previousSetCounts)
+            loadMap("completedSetCounts", completedSetCounts)
+            val nested = data.optJSONObject("nested")
+            fun loadNested(key: String, target: MutableMap<String, MutableMap<String, Int>>) {
+                val obj = nested?.optJSONObject(key) ?: return
+                target.clear()
+                obj.keys().forEach { name ->
+                    val inner = obj.optJSONObject(name) ?: return@forEach
+                    val counts = mutableMapOf<String, Int>()
+                    inner.keys().forEach { k -> counts[k] = inner.optInt(k) }
+                    target[name] = counts
+                }
+            }
+            loadNested("serverPreviousCounts", serverPreviousCounts)
+            loadNested("serverPreviousBackCounts", serverPreviousBackCounts)
+            loadNested("serverPreviousFrontCounts", serverPreviousFrontCounts)
+            loadNested("serverSetCounts", serverSetCounts)
+            loadNested("serverRotationBackCounts", serverRotationBackCounts)
+            loadNested("serverRotationFrontCounts", serverRotationFrontCounts)
+        } catch (_: Exception) {
+            Toast.makeText(this, "Δεν ήταν δυνατή η ανάκτηση του αγώνα", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    override fun onPause() {
+        saveMatchData()
+        super.onPause()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        restoreMatchData()
         showHome()
     }
 
@@ -936,6 +1061,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showCourt() {
+        saveMatchData()
         if (servingTeam == 0 && ourAttackCountThisRally == 0) receptionRecordedThisRally = true
         broadcastState()
         currentScreen = "COURT"
@@ -1061,6 +1187,7 @@ class MainActivity : AppCompatActivity() {
                 undoSnapshot = null
                 lastActionText = "Καμία ενέργεια"
                 Toast.makeText(this, "Τα στατιστικά καθαρίστηκαν", Toast.LENGTH_SHORT).show()
+                saveMatchData()
                 showCourt()
             }
             .setNegativeButton("ΑΚΥΡΟ", null)
