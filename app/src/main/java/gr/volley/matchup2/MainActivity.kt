@@ -597,6 +597,7 @@ class MainActivity : AppCompatActivity() {
         root.addView(button("ΑΡΧΙΚΗ ΠΕΡΙΣΤΡΟΦΗ"){ showRotationSetup() })
         root.addView(button("ΓΗΠΕΔΟ"){ showCourt() })
         root.addView(button("MATCHUP"){ showMatchup() })
+        root.addView(button("REPORT ΑΓΩΝΑ / PDF") { showPatternsReport() })
         root.addView(button("ΕΞΑΓΩΓΗ ΟΜΑΔΩΝ"){ exportTeams() })
         root.addView(button("ΕΙΣΑΓΩΓΗ ΟΜΑΔΩΝ"){ importTeams() })
     }
@@ -1870,6 +1871,7 @@ class MainActivity : AppCompatActivity() {
         attackSection("RECEPTION","ΕΠΙΘΕΣΗ ΑΝΤΙΠΑΛΟΥ ΜΕΤΑ ΑΠΟ ΥΠΟΔΟΧΗ")
         attackSection("DEFENSE","ΕΠΙΘΕΣΗ ΑΝΤΙΠΑΛΟΥ ΜΕΤΑ ΑΠΟ ΑΜΥΝΑ")
         root.addView(button("REPORT"){ showPatternsReport() })
+        root.addView(button("ΕΚΤΥΠΩΣΗ / ΑΠΟΘΗΚΕΥΣΗ PDF") { printMatchReport() })
         root.addView(button("ΠΙΣΩ"){ showCourt() })
     }
 
