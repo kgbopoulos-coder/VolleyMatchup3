@@ -1753,20 +1753,39 @@ class MainActivity : AppCompatActivity() {
         html.append("</style></head><body>")
         html.append("<h1>VOLLEY MATCHUP 3 — REPORT ΑΓΩΝΑ</h1>")
         html.append("<p>${escape(teams[0].name)} ${score[0]} - ${score[1]} ${escape(teams[1].name)} · ΣΕΤ $currentSet</p>")
-        html.append("<h2>ΕΠΙΘΕΣΕΙΣ — SIDE-OUT / TRANSITION</h2>")
-        html.append("<table><tr><th>Περιστροφή</th><th>Φάση</th><th>Ζώνη</th><th>Παίκτρια</th><th>Επιθέσεις</th><th>+</th><th>−</th><th>Επιτυχία</th></tr>")
-        val grouped = ourAttackStats.entries.groupBy { (key, _) ->
-            key.split("|").take(5).joinToString("|")
+        html.append("<h2>ΕΠΙΘΕΣΕΙΣ ΑΝΑ ΠΕΡΙΣΤΡΟΦΗ</h2>")
+        for (rotation in listOf(1,6,5,4,3,2,0)) {
+            html.append("<h2>" + (if(rotation == 0) "ΣΥΝΟΛΟ ΑΓΩΝΑ" else "ΠΕΡΙΣΤΡΟΦΗ R$rotation") + "</h2>")
+            for (context in listOf("SIDE_OUT", "TRANSITION", "ALL")) {
+                val label = if(context == "ALL") "ΣΥΝΟΛΟ" else if(context == "SIDE_OUT") "SIDE-OUT" else "TRANSITION"
+                html.append("<h3>$label</h3>")
+                val entries = ourAttackStats.entries.filter { (key, _) ->
+                    val p = key.split("|")
+                    p.size == 6 && (rotation == 0 || p[1] == rotation.toString()) && (context == "ALL" || p[0] == context)
+                }
+                val grouped = entries.groupBy { (key, _) -> key.split("|").let { p -> p[2] + "|" + p[4] } }
+                val total = entries.sumOf { it.value }
+                val rows = grouped.map { (who, attacks) ->
+                    val n = attacks.sumOf { it.value }
+                    val plus = attacks.filter { it.key.endsWith("|+") }.sumOf { it.value }
+                    Triple(who, n, plus)
+                }.sortedByDescending { it.second }
+                if (rows.isEmpty()) { html.append("<p>Χωρίς καταγραφή</p>"); continue }
+                val maxN = rows.maxOf { it.second }
+                val maxSuccess = rows.maxOf { if (it.second == 0) 0.0 else it.third.toDouble() / it.second }
+                html.append("<table><tr><th>Ζώνη / Παίκτρια</th><th>Επιθέσεις</th><th>Επιλογή</th><th>+</th><th>−</th><th>Επιτυχία</th></tr>")
+                rows.forEach { (who,n,plus) ->
+                    val selection = "%.1f%%".format(java.util.Locale.US, n * 100.0 / total)
+                    val success = "%.1f%%".format(java.util.Locale.US, plus * 100.0 / n)
+                    val selectionHtml = if(n == maxN) "<b style='color:#c00000'>$selection</b>" else selection
+                    val successHtml = if(plus > 0 && plus.toDouble()/n == maxSuccess) "<b style='color:#c00000'>$success</b>" else success
+                    html.append("<tr><td>${escape(who.replace("|", " — "))}</td><td>$n</td><td>$selectionHtml</td><td>$plus</td><td>${n-plus}</td><td>$successHtml</td></tr>")
+                }
+                html.append("</table>")
+            }
         }
-        for ((key, entries) in grouped.toSortedMap()) {
-            val parts = key.split("|")
-            if (parts.size < 5) continue
-            val n = entries.sumOf { it.value }
-            val plus = entries.filter { it.key.endsWith("|+") }.sumOf { it.value }
-            val pct = if (n == 0) 0.0 else 100.0 * plus / n
-            html.append("<tr><td>R${escape(parts[1])}</td><td>${escape(parts[0])}</td><td>${escape(parts[2])}</td><td>${escape(parts[4])}</td><td>$n</td><td>$plus</td><td>${n - plus}</td><td>${"%.1f".format(java.util.Locale.US,pct)}%</td></tr>")
-        }
-        html.append("</table><h2>ΥΠΟΔΟΧΕΣ ΑΝΑ ΠΕΡΙΣΤΡΟΦΗ</h2>")
+        html.append("<p>Κόκκινο: υψηλότερη επιλογή και υψηλότερη θετική επιτυχία, ανεξάρτητα.</p>")
+        html.append("<h2>ΥΠΟΔΟΧΕΣ ΑΝΑ ΠΕΡΙΣΤΡΟΦΗ</h2>")
         html.append("<table><tr><th>Περιστροφή</th><th>Παίκτρια / ρόλος</th><th>Υποδοχές</th></tr>")
         for ((key, n) in receptionCountsByRotation.toSortedMap()) {
             val parts = key.split("|")
