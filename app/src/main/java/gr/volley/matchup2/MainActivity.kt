@@ -1594,7 +1594,7 @@ class MainActivity : AppCompatActivity() {
             val n = counts[role] ?: 0
             val pct = if (total == 0) 0 else ((n * 100.0) / total).toInt()
             val name = teams[0].roster.firstOrNull { it.role == role }?.name?.takeIf { it.isNotBlank() } ?: role
-            val row = "$name — $n ($pct%)" + if (backs != null && fronts != null) " — πίσω ${backs[role] ?: 0} — μπροστά ${fronts[role] ?: 0}" else ""
+            val row = "$name — $n ($pct%)"
             if (maxCount > 0 && n == maxCount) "<font color='#D00000'><b>$row</b></font>" else row
         }
     }
@@ -1665,10 +1665,8 @@ class MainActivity : AppCompatActivity() {
             val player = teams[0].roster.firstOrNull { it.role == role }
             val name = player?.name?.takeIf { it.isNotBlank() } ?: role
             val n = receptionCounts[role] ?: 0
-            val back = receptionBackCounts[role] ?: 0
-            val front = receptionFrontCounts[role] ?: 0
             root.addView(TextView(this).apply {
-                val row = "$name: $n (${pct(n)}%) — πίσω $back — μπροστά $front"
+                val row = "$name: $n (${pct(n)}%)"
                 text = if (overallMax > 0 && n == overallMax)
                     Html.fromHtml("<font color='#D00000'><b>$row</b></font>", Html.FROM_HTML_MODE_LEGACY)
                 else row
@@ -1676,21 +1674,6 @@ class MainActivity : AppCompatActivity() {
                 setPadding(0,8,0,8)
             })
         }
-
-        val totalBack = receptionBackCounts.values.sum()
-        val totalFront = receptionFrontCounts.values.sum()
-        root.addView(TextView(this).apply {
-            text = "ΣΤΟΧΟΣ SERVICE — ΜΠΡΟΣΤΑ / ΠΙΣΩ"
-            textSize = 18f
-            gravity = Gravity.CENTER
-            setPadding(0,20,0,8)
-        })
-        root.addView(TextView(this).apply {
-            text = "ΜΠΡΟΣΤΑ: $totalFront (${pct(totalFront)}%) — ΠΙΣΩ: $totalBack (${pct(totalBack)}%)"
-            textSize = 16f
-            gravity = Gravity.CENTER
-            setPadding(0,5,0,5)
-        })
 
         root.addView(TextView(this).apply {
             text = "ΑΝΑ ΠΕΡΙΣΤΡΟΦΗ"
@@ -1737,7 +1720,7 @@ class MainActivity : AppCompatActivity() {
                         ?: role
                     val posCounts = (1..6).associateWith { p -> receptionCountsByRotation["P$rotation|$role|P$p"] ?: 0 }
                     val receiverPos = posCounts.maxByOrNull { it.value }?.takeIf { it.value > 0 }?.key
-                    val posText = receiverPos?.let { "P$it" } ?: role
+                    val posText = receiverPos?.let { "P$it" } ?: receptionRoles(rotation).indexOf(role).let { index -> if (index >= 0) listOf("P1", "P6", "P5")[index] else "—" }
                     val row = "$playerName ($posText) $n (${((n * 100.0) / rotTotal).toInt()}%)"
                     if (maxInRotation > 0 && n == maxInRotation) "<font color='#D00000'><b>$row</b></font>" else row
                 }
@@ -1852,7 +1835,7 @@ class MainActivity : AppCompatActivity() {
                 val pct=((n*100.0)/serviceTotal).toInt()
                 val name=teams[0].roster.firstOrNull{it.role==role}?.name?.takeIf{it.isNotBlank()}?:role
                 root.addView(TextView(this).apply {
-                    text="$name ($role): $n/$serviceTotal ($pct%) — μπροστά ${matchReceptionFrontCounts[role]?:0} — πίσω ${matchReceptionBackCounts[role]?:0}"
+                    text="$name: $n/$serviceTotal ($pct%)"
                     textSize=15f; setPadding(0,4,0,4)
                 })
             }
