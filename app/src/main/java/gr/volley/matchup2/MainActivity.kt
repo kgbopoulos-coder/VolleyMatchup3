@@ -63,6 +63,7 @@ class MainActivity : AppCompatActivity() {
     private val receptionCounts = mutableMapOf<String, Int>()
     private val receptionCountsByRotation = mutableMapOf<String, Int>()
     private val receptionByPlayerRotation = mutableMapOf<String, Int>()
+    private val receptionByPlayerPosition = mutableMapOf<String, Int>() // rotation|name|court position
     // Active on-court roster index per tactical role; substitutions never rewrite player history.
     private val activeRolePlayers = mutableMapOf<String, Int>()
     private val substitutionHistory = mutableListOf<String>()
@@ -218,6 +219,7 @@ class MainActivity : AppCompatActivity() {
                 "receptionCounts" to receptionCounts,
                 "receptionCountsByRotation" to receptionCountsByRotation,
                 "receptionByPlayerRotation" to receptionByPlayerRotation,
+                "receptionByPlayerPosition" to receptionByPlayerPosition,
                 "receptionBackCounts" to receptionBackCounts,
                 "receptionFrontCounts" to receptionFrontCounts,
                 "receptionPositionCounts" to receptionPositionCounts,
@@ -297,6 +299,7 @@ class MainActivity : AppCompatActivity() {
             loadMap("receptionCounts", receptionCounts)
             loadMap("receptionCountsByRotation", receptionCountsByRotation)
             loadMap("receptionByPlayerRotation", receptionByPlayerRotation)
+            loadMap("receptionByPlayerPosition", receptionByPlayerPosition)
             loadMap("receptionBackCounts", receptionBackCounts)
             loadMap("receptionFrontCounts", receptionFrontCounts)
             loadMap("receptionPositionCounts", receptionPositionCounts)
@@ -1495,6 +1498,8 @@ class MainActivity : AppCompatActivity() {
         }
         val playerKey = "P$rotation|$whoForAction"
         receptionByPlayerRotation[playerKey] = (receptionByPlayerRotation[playerKey] ?: 0) + 1
+        val positionKey = "P$rotation|$whoForAction|P${(courtPos ?: 0) + 1}"
+        receptionByPlayerPosition[positionKey] = (receptionByPlayerPosition[positionKey] ?: 0) + 1
         val key = "P$rotation|$role"
         receptionCountsByRotation[key] = (receptionCountsByRotation[key] ?: 0) + 1
         if (courtPos != null) {
@@ -1723,20 +1728,15 @@ class MainActivity : AppCompatActivity() {
             setPadding(0,0,0,16)
         })
 
-        val overallMax = arrayOf("ΑΚ1","ΑΚ2","Λ").maxOf { receptionCounts[it] ?: 0 }
-        arrayOf("ΑΚ1","ΑΚ2","Λ")
-            .sortedByDescending { receptionCounts[it] ?: 0 }
-            .forEach { role ->
-            val player = teams[0].roster.firstOrNull { it.role == role }
-            val name = player?.name?.takeIf { it.isNotBlank() } ?: role
-            val n = receptionCounts[role] ?: 0
+        val overall = receptionByPlayerRotation.entries.groupBy { it.key.substringAfter("|") }
+            .mapValues { (_, entries) -> entries.sumOf { it.value } }
+        val maxOverall = overall.values.maxOrNull() ?: 0
+        overall.entries.sortedByDescending { it.value }.forEach { (name, n) ->
+            val row = "${android.text.TextUtils.htmlEncode(name)}: $n (${pct(n)}%)"
             root.addView(TextView(this).apply {
-                val row = "$name: $n (${pct(n)}%)"
-                text = if (overallMax > 0 && n == overallMax)
-                    Html.fromHtml("<font color='#D00000'><b>$row</b></font>", Html.FROM_HTML_MODE_LEGACY)
-                else row
+                text = Html.fromHtml(if (n > 0 && n == maxOverall) "<font color='#D00000'><b>$row</b></font>" else row, Html.FROM_HTML_MODE_LEGACY)
                 textSize = 16f
-                setPadding(0,8,0,8)
+                setPadding(0, 8, 0, 8)
             })
         }
 
@@ -1747,9 +1747,10 @@ class MainActivity : AppCompatActivity() {
             setPadding(0,20,0,8)
         })
         for (rotation in 1..6) {
-            val counts = arrayOf("ΑΚ1","ΑΚ2","Λ").associateWith { role ->
-                receptionCountsByRotation["P$rotation|$role"] ?: 0
-            }
+            val counts = receptionByPlayerRotation.entries
+                .filter { it.key.startsWith("P$rotation|") }
+                .groupBy { it.key.substringAfter("|") }
+                .mapValues { (_, entries) -> entries.sumOf { it.value } }
             // Opponent server for this rotation, derived from the saved P1 lineup
             // using the exact P1 -> P6 -> P5 -> P4 -> P3 -> P2 sequence.
             val serverSteps = when (rotation) {
@@ -1777,16 +1778,11 @@ class MainActivity : AppCompatActivity() {
             val rotTotal = counts.values.sum()
             val maxInRotation = counts.values.maxOrNull() ?: 0
             val detail = if (rotTotal == 0) "χωρίς καταγραφή" else
-                counts.entries.joinToString(" — ") { (role,n) ->
-                    val playerName = teams[0].roster
-                        .firstOrNull { it.role == role }
-                        ?.name
-                        ?.takeIf { it.isNotBlank() }
-                        ?: role
-                    val posCounts = (1..6).associateWith { p -> receptionCountsByRotation["P$rotation|$role|P$p"] ?: 0 }
-                    val receiverPos = posCounts.maxByOrNull { it.value }?.takeIf { it.value > 0 }?.key
-                    val posText = receiverPos?.let { "P$it" } ?: receptionRoles(rotation).indexOf(role).let { index -> if (index >= 0) listOf("P1", "P6", "P5")[index] else "—" }
-                    val row = "$playerName ($posText) $n (${((n * 100.0) / rotTotal).toInt()}%)"
+                counts.entries.sortedByDescending { it.value }.joinToString(" — ") { (name, n) ->
+                    val position = receptionByPlayerPosition.entries
+                        .filter { it.key.startsWith("P$rotation|$name|") }
+                        .maxByOrNull { it.value }?.key?.substringAfterLast("|") ?: "—"
+                    val row = "${android.text.TextUtils.htmlEncode(name)} ($position) $n (${((n * 100.0) / rotTotal).toInt()}%)"
                     if (maxInRotation > 0 && n == maxInRotation) "<font color='#D00000'><b>$row</b></font>" else row
                 }
             root.addView(TextView(this).apply {
