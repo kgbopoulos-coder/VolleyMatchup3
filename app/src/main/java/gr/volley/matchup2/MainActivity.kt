@@ -1841,35 +1841,26 @@ class MainActivity : AppCompatActivity() {
         if (substitutionHistory.isEmpty()) html.append("<p>Δεν έχουν καταγραφεί αλλαγές.</p>")
         else substitutionHistory.forEach { html.append("<p>${escape(it)}</p>") }
         html.append("<h2>ΥΠΟΔΟΧΕΣ ΑΝΑ ΠΕΡΙΣΤΡΟΦΗ</h2>")
-        val receptionRolesList = listOf("ΑΚ1", "Λ", "ΑΚ2")
-        val matchTotalsByRole = receptionRolesList.associateWith { role ->
-            // Use the match-level counters, which include completed sets.
-            matchReceptionCounts[role] ?: 0
-        }
         for (rotation in listOf(1, 6, 5, 4, 3, 2)) {
-            val rolesInFormation = receptionRoles(rotation)
-            val rows = rolesInFormation.mapIndexed { index, role ->
-                val playerName = teams[0].roster.firstOrNull { it.role == role }?.name
-                    ?.takeIf { it.isNotBlank() } ?: role
-                val count = receptionCountsByRotation["P$rotation|$role"] ?: 0
-                val actualPosition = (1..6).maxByOrNull { p ->
-                    receptionCountsByRotation["P$rotation|$role|P$p"] ?: 0
-                }?.takeIf { p -> (receptionCountsByRotation["P$rotation|$role|P$p"] ?: 0) > 0 }
-                val position = actualPosition?.let { "P$it" }
-                    ?: listOf("P1", "P6", "P5").getOrElse(index) { "—" }
-                Triple("$playerName — $position", count, role)
-            }
-            val total = rows.sumOf { it.second }
-            val maxCount = rows.maxOfOrNull { it.second } ?: 0
+            val counts = receptionByPlayerRotation.entries
+                .filter { it.key.startsWith("P$rotation|") }
+                .groupBy { it.key.substringAfter("|") }
+                .mapValues { (_, entries) -> entries.sumOf { it.value } }
+            val total = counts.values.sum()
+            val maxCount = counts.values.maxOrNull() ?: 0
             html.append("<h3>ΠΕΡΙΣΤΡΟΦΗ R$rotation</h3>")
             html.append("<table><tr><th>Παίκτρια / Θέση</th><th>Υποδοχές</th><th>Ποσοστό</th></tr>")
-            rows.sortedByDescending { it.second }.forEach { (name, count, _) ->
+            counts.entries.sortedByDescending { it.value }.forEach { (name, count) ->
+                val pos = receptionByPlayerPosition.entries
+                    .filter { it.key.startsWith("P$rotation|$name|") }
+                    .maxByOrNull { it.value }?.key?.substringAfterLast("|") ?: "—"
                 val pct = if (total == 0) "0.0%" else "%.1f%%".format(java.util.Locale.US, count * 100.0 / total)
-                val formatted = if (count > 0 && count == maxCount) "<b style='color:#c00000'>$pct</b>" else pct
-                html.append("<tr><td>${escape(name)}</td><td>$count</td><td>$formatted</td></tr>")
+                val colored = if (count > 0 && count == maxCount) "<b style='color:#c00000'>$pct</b>" else pct
+                html.append("<tr><td>${escape(name)} — ${escape(pos)}</td><td>$count</td><td>$colored</td></tr>")
             }
             html.append("<tr><td><b>Σύνολο R$rotation</b></td><td><b>$total</b></td><td><b>${if (total > 0) "100.0%" else "0.0%"}</b></td></tr></table>")
         }
+
         html.append("<h2>ΣΥΝΟΛΟ ΑΓΩΝΑ — ΥΠΟΔΟΧΕΣ</h2>")
         html.append("<table><tr><th>Παίκτρια</th><th>Υποδοχές</th><th>Ποσοστό</th></tr>")
         val matchTotal = matchTotalsByRole.values.sum()
