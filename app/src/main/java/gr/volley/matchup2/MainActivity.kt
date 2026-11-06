@@ -66,10 +66,12 @@ class MainActivity : AppCompatActivity() {
     // Active on-court roster index per tactical role; substitutions never rewrite player history.
     private val activeRolePlayers = mutableMapOf<String, Int>()
     private val substitutionHistory = mutableListOf<String>()
-    private fun activePlayerForRole(role: String): Player? {
-        val idx = activeRolePlayers[role]
-        return if (idx != null && idx in teams[0].roster.indices) teams[0].roster[idx]
-        else teams[0].roster.firstOrNull { it.role == role }
+    private val opponentActiveRolePlayers = mutableMapOf<String, Int>()
+    private fun activePlayerForRole(role: String, ti: Int = 0): Player? {
+        val assignments = if (ti == 0) activeRolePlayers else opponentActiveRolePlayers
+        val idx = assignments[role]
+        return if (idx != null && idx in teams[ti].roster.indices) teams[ti].roster[idx]
+        else teams[ti].roster.firstOrNull { it.role == role }
     }
 
     private val receptionBackCounts = mutableMapOf<String, Int>()
@@ -208,6 +210,7 @@ class MainActivity : AppCompatActivity() {
             data.put("p1_1", org.json.JSONArray(p1Formation[1].toList()))
             data.put("teams", org.json.JSONArray(listOf(teams[0].name, teams[1].name)))
             data.put("activeRolePlayers", JSONObject(activeRolePlayers as Map<*, *>))
+            data.put("opponentActiveRolePlayers", JSONObject(opponentActiveRolePlayers as Map<*, *>))
             data.put("substitutionHistory", org.json.JSONArray(substitutionHistory))
             val maps = JSONObject()
             val stats = mapOf(
@@ -275,6 +278,10 @@ class MainActivity : AppCompatActivity() {
             activeRolePlayers.clear()
             data.optJSONObject("activeRolePlayers")?.let { obj ->
                 obj.keys().forEach { role -> activeRolePlayers[role] = obj.optInt(role, -1) }
+            }
+            opponentActiveRolePlayers.clear()
+            data.optJSONObject("opponentActiveRolePlayers")?.let { obj ->
+                obj.keys().forEach { role -> opponentActiveRolePlayers[role] = obj.optInt(role, -1) }
             }
             substitutionHistory.clear()
             data.optJSONArray("substitutionHistory")?.let { arr ->
@@ -1086,18 +1093,18 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun showSubstitutionDialog() {
+    private fun showSubstitutionDialog(ti: Int) {
         val rolesOnCourt = listOf("Π", "ΑΚ1", "ΑΚ2", "Κ1", "Κ2", "Δ", "Λ")
         val roleLabels = rolesOnCourt.map { role ->
-            val player = activePlayerForRole(role)
+            val player = activePlayerForRole(role, ti)
             "$role — ${player?.name?.ifBlank { "Χωρίς όνομα" } ?: "—"}"
         }.toTypedArray()
         AlertDialog.Builder(this).setTitle("ΑΛΛΑΓΗ ΠΑΙΚΤΡΙΑΣ — ΠΟΙΑ ΒΓΑΙΝΕΙ;")
             .setItems(roleLabels) { _, roleIndex ->
                 val role = rolesOnCourt[roleIndex]
-                val old = activePlayerForRole(role)
-                val onCourt = rolesOnCourt.mapNotNull { activePlayerForRole(it) }.toSet()
-                val available = teams[0].roster.withIndex().filter { (_, p) ->
+                val old = activePlayerForRole(role, ti)
+                val onCourt = rolesOnCourt.mapNotNull { activePlayerForRole(it, ti) }.toSet()
+                val available = teams[ti].roster.withIndex().filter { (_, p) ->
                     p.name.isNotBlank() && p !== old && p !in onCourt
                 }
                 if (available.isEmpty()) {
@@ -1110,10 +1117,11 @@ class MainActivity : AppCompatActivity() {
                                 .setTitle("Επιβεβαίωση αλλαγής")
                                 .setMessage("${old?.name ?: role} → ${incoming.name}\nΡόλος: $role\nΧωρίς αλλαγή περιστροφής.")
                                 .setPositiveButton("ΑΛΛΑΓΗ") { _, _ ->
-                                    activeRolePlayers[role] = idx
-                                    val entry = "ΣΕΤ $currentSet · ${score[0]}-${score[1]} · $role: ${old?.name ?: "—"} → ${incoming.name}"
+                                    if (ti == 0) activeRolePlayers[role] = idx else opponentActiveRolePlayers[role] = idx
+                                    val entry = "${teams[ti].name} · ΣΕΤ $currentSet · ${score[0]}-${score[1]} · $role: ${old?.name ?: "—"} → ${incoming.name}"
                                     substitutionHistory.add(entry)
-                                    lastActionText = "ΑΛΛΑΓΗ: ${old?.name ?: role} → ${incoming.name}"
+                                    lastActionText = "ΑΛΛΑΓΗ ${teams[ti].name}: ${old?.name ?: role} → ${incoming.name}"
+                                    if (ti == 1 && selected[1][0] in teams[1].roster.indices && old === teams[1].roster[selected[1][0]]) selected[1][0] = idx
                                     saveMatchData()
                                     showCourt()
                                 }.setNegativeButton("ΑΚΥΡΟ", null).show()
@@ -1160,7 +1168,8 @@ class MainActivity : AppCompatActivity() {
             setPadding(0,0,0,8)
         })
         root.addView(button("↶  ΑΝΑΙΡΕΣΗ") { undoLastAction() })
-        root.addView(button("ΑΛΛΑΓΗ ΠΑΙΚΤΡΙΑΣ") { showSubstitutionDialog() })
+        root.addView(button("ΑΛΛΑΓΗ ΠΑΙΚΤΡΙΑΣ — ΔΙΚΗ ΜΑΣ") { showSubstitutionDialog(0) })
+        root.addView(button("ΑΛΛΑΓΗ ΠΑΙΚΤΡΙΑΣ — ΑΝΤΙΠΑΛΗ") { showSubstitutionDialog(1) })
 
         if (servingTeam == 1) {
             val server = currentOpponentServer()
@@ -2070,7 +2079,7 @@ class MainActivity : AppCompatActivity() {
 
         val rotation = teamRotation(ti)
         val reception = receptionRoles(rotation)
-        val libero = if (ti == 0) activePlayerForRole("Λ") else teams[ti].roster.firstOrNull { it.role == "Λ" }
+        val libero = activePlayerForRole("Λ", ti)
 
         // Visual orientation:
         // opponent: P1 P6 P5 / P2 P3 P4
@@ -2124,7 +2133,7 @@ class MainActivity : AppCompatActivity() {
                     !middleServing
                 ) "Λ" else baseDisplayRole
                 val displayPlayer = if (displayRole == "Λ") libero else if (displayRole != null) {
-                    if (ti == 0) activePlayerForRole(displayRole) else teams[ti].roster.firstOrNull { it.role == displayRole }
+                    activePlayerForRole(displayRole, ti)
                 } else null
                 row.addView(
                     if (hideDuringReception) emptyCourtBox() else playerBox(ti,p,displayPlayer,displayRole,showReceptionFormation),
