@@ -62,6 +62,7 @@ class MainActivity : AppCompatActivity() {
     private val currentRotation = intArrayOf(1, 1)
     private val receptionCounts = mutableMapOf<String, Int>()
     private val receptionCountsByRotation = mutableMapOf<String, Int>()
+    private val receptionByPlayerRotation = mutableMapOf<String, Int>()
     private val receptionBackCounts = mutableMapOf<String, Int>()
     private val receptionFrontCounts = mutableMapOf<String, Int>()
     private val receptionPositionCounts = mutableMapOf<String, Int>()
@@ -106,6 +107,7 @@ class MainActivity : AppCompatActivity() {
         val lastAttackerContext: String?, val nextAttackContext: Array<String?>,
         val lastTouchedTeam: Int?, val lastTouchedPos: Int?, val lastTouchWasBlock: Boolean,
         val receptionCounts: Map<String,Int>, val receptionCountsByRotation: Map<String,Int>,
+        val receptionByPlayerRotation: Map<String,Int>,
         val receptionBackCounts: Map<String,Int>, val receptionFrontCounts: Map<String,Int>,
         val receptionPositionCounts: Map<String,Int>, val matchReceptionCounts: Map<String,Int>,
         val matchReceptionBackCounts: Map<String,Int>, val matchReceptionFrontCounts: Map<String,Int>,
@@ -131,7 +133,7 @@ class MainActivity : AppCompatActivity() {
             receptionRecordedThisRally, rallyBallTeam, lastActionWasBlock,
             lastAttackerTeam, lastAttackerName, lastAttackerPosition, lastAttackerContext,
             nextAttackContext.clone(), lastTouchedTeam, lastTouchedPos, lastTouchWasBlock,
-            HashMap(receptionCounts), HashMap(receptionCountsByRotation),
+            HashMap(receptionCounts), HashMap(receptionCountsByRotation), HashMap(receptionByPlayerRotation),
             HashMap(receptionBackCounts), HashMap(receptionFrontCounts), HashMap(receptionPositionCounts),
             HashMap(matchReceptionCounts), HashMap(matchReceptionBackCounts), HashMap(matchReceptionFrontCounts),
             nestedCopy(serverPreviousCounts), nestedCopy(serverPreviousBackCounts),
@@ -163,6 +165,7 @@ class MainActivity : AppCompatActivity() {
         lastTouchedTeam=s.lastTouchedTeam; lastTouchedPos=s.lastTouchedPos; lastTouchWasBlock=s.lastTouchWasBlock
         fun restore(dst:MutableMap<String,Int>, src:Map<String,Int>){ dst.clear(); dst.putAll(src) }
         restore(receptionCounts,s.receptionCounts); restore(receptionCountsByRotation,s.receptionCountsByRotation)
+        restore(receptionByPlayerRotation,s.receptionByPlayerRotation)
         restore(receptionBackCounts,s.receptionBackCounts); restore(receptionFrontCounts,s.receptionFrontCounts)
         restore(receptionPositionCounts,s.receptionPositionCounts); restore(matchReceptionCounts,s.matchReceptionCounts)
         restore(matchReceptionBackCounts,s.matchReceptionBackCounts); restore(matchReceptionFrontCounts,s.matchReceptionFrontCounts)
@@ -200,6 +203,7 @@ class MainActivity : AppCompatActivity() {
                 "ourAttackStats" to ourAttackStats,
                 "receptionCounts" to receptionCounts,
                 "receptionCountsByRotation" to receptionCountsByRotation,
+                "receptionByPlayerRotation" to receptionByPlayerRotation,
                 "receptionBackCounts" to receptionBackCounts,
                 "receptionFrontCounts" to receptionFrontCounts,
                 "receptionPositionCounts" to receptionPositionCounts,
@@ -266,6 +270,7 @@ class MainActivity : AppCompatActivity() {
             loadMap("ourAttackStats", ourAttackStats)
             loadMap("receptionCounts", receptionCounts)
             loadMap("receptionCountsByRotation", receptionCountsByRotation)
+            loadMap("receptionByPlayerRotation", receptionByPlayerRotation)
             loadMap("receptionBackCounts", receptionBackCounts)
             loadMap("receptionFrontCounts", receptionFrontCounts)
             loadMap("receptionPositionCounts", receptionPositionCounts)
@@ -1164,6 +1169,7 @@ class MainActivity : AppCompatActivity() {
             .setMessage("Να διαγραφούν όλα τα στατιστικά του αγώνα; Τα roster και η αποθηκευμένη P1 δεν θα διαγραφούν.")
             .setPositiveButton("ΝΑΙ") { _, _ ->
                 ourAttackStats.clear()
+                receptionByPlayerRotation.clear()
                 ourAttackCountThisRally = 0
                 receptionCounts.clear()
                 receptionCountsByRotation.clear()
@@ -1422,6 +1428,8 @@ class MainActivity : AppCompatActivity() {
             val setMap = serverSetCounts.getOrPut(serverKey) { mutableMapOf() }
             setMap[role] = (setMap[role] ?: 0) + 1
         }
+        val playerKey = "P$rotation|$whoForAction"
+        receptionByPlayerRotation[playerKey] = (receptionByPlayerRotation[playerKey] ?: 0) + 1
         val key = "P$rotation|$role"
         receptionCountsByRotation[key] = (receptionCountsByRotation[key] ?: 0) + 1
         if (courtPos != null) {
@@ -1788,13 +1796,19 @@ class MainActivity : AppCompatActivity() {
         html.append("<h2>ΥΠΟΔΟΧΕΣ ΑΝΑ ΠΕΡΙΣΤΡΟΦΗ</h2>")
         html.append("<table><tr><th>Περιστροφή</th><th>Παίκτρια</th><th>Υποδοχές</th><th>Ποσοστό</th></tr>")
         for (rotation in listOf(1,6,5,4,3,2)) {
-            val receptions = listOf("ΑΚ1","ΑΚ2","Λ").map { role ->
+            val named = receptionByPlayerRotation.entries.filter { it.key.startsWith("P$rotation|") }
+                .map { it.key.substringAfter("|") to it.value }
+            // Older saved matches only have role-based counts; do not double-count both maps.
+            val receptions = if (named.isNotEmpty()) named else listOf("ΑΚ1","ΑΚ2","Λ").map { role ->
                 val name = teams[0].roster.firstOrNull { it.role == role }?.name?.takeIf { it.isNotBlank() } ?: role
                 name to (receptionCountsByRotation["P$rotation|$role"] ?: 0)
-            }.groupBy { it.first }.map { (name, values) -> name to values.sumOf { it.second } }
-            val total = receptions.sumOf { it.second }
-            val maximum = receptions.maxOfOrNull { it.second } ?: 0
-            for ((name, n) in receptions.filter { it.second > 0 }.sortedByDescending { it.second }) {
+            }
+            val combined = receptions.groupBy { it.first }
+                .map { (name, values) -> name to values.sumOf { it.second } }
+                .filter { it.second > 0 }.sortedByDescending { it.second }
+            val total = combined.sumOf { it.second }
+            val maximum = combined.maxOfOrNull { it.second } ?: 0
+            for ((name, n) in combined) {
                 val pct = "%.1f%%".format(java.util.Locale.US, n * 100.0 / total)
                 val pctHtml = if (n == maximum) "<b style='color:#c00000'>$pct</b>" else pct
                 html.append("<tr><td>R$rotation</td><td>${escape(name)}</td><td>$n</td><td>$pctHtml</td></tr>")
