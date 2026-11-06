@@ -1749,7 +1749,7 @@ class MainActivity : AppCompatActivity() {
         val escape: (String) -> String = { android.text.TextUtils.htmlEncode(it) }
         val html = StringBuilder()
         html.append("<html><head><meta charset='UTF-8'><style>")
-        html.append("body{font-family:sans-serif;color:#222;padding:18px}h1{font-size:22px}h2{font-size:17px;margin-top:20px}table{border-collapse:collapse;width:100%;font-size:12px}td,th{border:1px solid #bbb;padding:6px;text-align:left}th{background:#eee}.small{color:#555;font-size:11px}")
+        html.append("@page{size:A4;margin:8mm}body{font-family:sans-serif;color:#222;margin:0;padding:0;font-size:9px}h1{font-size:15px;margin:0 0 3px}h2{font-size:11px;margin:7px 0 2px;page-break-after:avoid}h3{font-size:10px;margin:4px 0 1px;page-break-after:avoid}p{margin:2px 0 4px}table{border-collapse:collapse;width:100%;font-size:9px;margin:1px 0 4px;page-break-inside:auto}tr{page-break-inside:avoid}td,th{border:1px solid #bbb;padding:2px 3px;text-align:left;line-height:1.12}th{background:#eee}.small{color:#555;font-size:8px}b[style*='color']{color:#c00000!important;-webkit-print-color-adjust:exact}")
         html.append("</style></head><body>")
         html.append("<h1>VOLLEY MATCHUP 3 — REPORT ΑΓΩΝΑ</h1>")
         html.append("<p>${escape(teams[0].name)} ${score[0]} - ${score[1]} ${escape(teams[1].name)} · ΣΕΤ $currentSet</p>")
@@ -1758,7 +1758,6 @@ class MainActivity : AppCompatActivity() {
             html.append("<h2>" + (if(rotation == 0) "ΣΥΝΟΛΟ ΑΓΩΝΑ" else "ΠΕΡΙΣΤΡΟΦΗ R$rotation") + "</h2>")
             for (context in listOf("SIDE_OUT", "TRANSITION", "ALL")) {
                 val label = if(context == "ALL") "ΣΥΝΟΛΟ" else if(context == "SIDE_OUT") "SIDE-OUT" else "TRANSITION"
-                html.append("<h3>$label</h3>")
                 val entries = ourAttackStats.entries.filter { (key, _) ->
                     val p = key.split("|")
                     p.size == 6 && (rotation == 0 || p[1] == rotation.toString()) && (context == "ALL" || p[0] == context)
@@ -1770,7 +1769,8 @@ class MainActivity : AppCompatActivity() {
                     val plus = attacks.filter { it.key.endsWith("|+") }.sumOf { it.value }
                     Triple(who, n, plus)
                 }.sortedByDescending { it.second }
-                if (rows.isEmpty()) { html.append("<p>Χωρίς καταγραφή</p>"); continue }
+                if (rows.isEmpty()) continue
+                html.append("<h3>$label</h3>")
                 val maxN = rows.maxOf { it.second }
                 val maxSuccess = rows.maxOf { if (it.second == 0) 0.0 else it.third.toDouble() / it.second }
                 html.append("<table><tr><th>Ζώνη / Παίκτρια</th><th>Επιθέσεις</th><th>Επιλογή</th><th>+</th><th>−</th><th>Επιτυχία</th></tr>")
