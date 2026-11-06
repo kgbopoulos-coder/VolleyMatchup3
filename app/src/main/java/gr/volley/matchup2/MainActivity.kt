@@ -1777,27 +1777,46 @@ class MainActivity : AppCompatActivity() {
         }
         html.append("<p>Κόκκινο: υψηλότερη επιλογή και υψηλότερη θετική επιτυχία, ανεξάρτητα.</p>")
         html.append("<h2>ΥΠΟΔΟΧΕΣ ΑΝΑ ΠΕΡΙΣΤΡΟΦΗ</h2>")
-        html.append("<table><tr><th>Περιστροφή</th><th>Παίκτρια</th><th>Υποδοχές</th><th>Ποσοστό</th></tr>")
-        for (rotation in listOf(1,6,5,4,3,2)) {
-            val named = receptionByPlayerRotation.entries.filter { it.key.startsWith("P$rotation|") }
-                .map { it.key.substringAfter("|") to it.value }
-            // Older saved matches only have role-based counts; do not double-count both maps.
-            val receptions = if (named.isNotEmpty()) named else listOf("ΑΚ1","ΑΚ2","Λ").map { role ->
-                val name = teams[0].roster.firstOrNull { it.role == role }?.name?.takeIf { it.isNotBlank() } ?: role
-                name to (receptionCountsByRotation["P$rotation|$role"] ?: 0)
-            }
-            val combined = receptions.groupBy { it.first }
-                .map { (name, values) -> name to values.sumOf { it.second } }
-                .filter { it.second > 0 }.sortedByDescending { it.second }
-            val total = combined.sumOf { it.second }
-            val maximum = combined.maxOfOrNull { it.second } ?: 0
-            for ((name, n) in combined) {
-                val pct = "%.1f%%".format(java.util.Locale.US, n * 100.0 / total)
-                val pctHtml = if (n == maximum) "<b style='color:#c00000'>$pct</b>" else pct
-                html.append("<tr><td>R$rotation</td><td>${escape(name)}</td><td>$n</td><td>$pctHtml</td></tr>")
-            }
+        val receptionRolesList = listOf("ΑΚ1", "Λ", "ΑΚ2")
+        val matchTotalsByRole = receptionRolesList.associateWith { role ->
+            // Use the match-level counters, which include completed sets.
+            matchReceptionCounts[role] ?: 0
         }
-
+        for (rotation in listOf(1, 6, 5, 4, 3, 2)) {
+            val rolesInFormation = receptionRoles(rotation)
+            val rows = rolesInFormation.mapIndexed { index, role ->
+                val playerName = teams[0].roster.firstOrNull { it.role == role }?.name
+                    ?.takeIf { it.isNotBlank() } ?: role
+                val count = receptionCountsByRotation["P$rotation|$role"] ?: 0
+                val actualPosition = (1..6).maxByOrNull { p ->
+                    receptionCountsByRotation["P$rotation|$role|P$p"] ?: 0
+                }?.takeIf { p -> (receptionCountsByRotation["P$rotation|$role|P$p"] ?: 0) > 0 }
+                val position = actualPosition?.let { "P$it" }
+                    ?: listOf("P1", "P6", "P5").getOrElse(index) { "—" }
+                Triple("$playerName — $position", count, role)
+            }
+            val total = rows.sumOf { it.second }
+            val maxCount = rows.maxOfOrNull { it.second } ?: 0
+            html.append("<h3>ΠΕΡΙΣΤΡΟΦΗ R$rotation</h3>")
+            html.append("<table><tr><th>Παίκτρια / Θέση</th><th>Υποδοχές</th><th>Ποσοστό</th></tr>")
+            rows.sortedByDescending { it.second }.forEach { (name, count, _) ->
+                val pct = if (total == 0) "0.0%" else "%.1f%%".format(java.util.Locale.US, count * 100.0 / total)
+                val formatted = if (count > 0 && count == maxCount) "<b style='color:#c00000'>$pct</b>" else pct
+                html.append("<tr><td>${escape(name)}</td><td>$count</td><td>$formatted</td></tr>")
+            }
+            html.append("<tr><td><b>Σύνολο R$rotation</b></td><td><b>$total</b></td><td><b>${if (total > 0) "100.0%" else "0.0%"}</b></td></tr></table>")
+        }
+        html.append("<h2>ΣΥΝΟΛΟ ΑΓΩΝΑ — ΥΠΟΔΟΧΕΣ</h2>")
+        html.append("<table><tr><th>Παίκτρια</th><th>Υποδοχές</th><th>Ποσοστό</th></tr>")
+        val matchTotal = matchTotalsByRole.values.sum()
+        val matchMax = matchTotalsByRole.values.maxOrNull() ?: 0
+        matchTotalsByRole.entries.sortedByDescending { it.value }.forEach { (role, count) ->
+            val name = teams[0].roster.firstOrNull { it.role == role }?.name?.takeIf { it.isNotBlank() } ?: role
+            val pct = if (matchTotal == 0) "0.0%" else "%.1f%%".format(java.util.Locale.US, count * 100.0 / matchTotal)
+            val formatted = if (count > 0 && count == matchMax) "<b style='color:#c00000'>$pct</b>" else pct
+            html.append("<tr><td>${escape(name)}</td><td>$count</td><td>$formatted</td></tr>")
+        }
+        html.append("<tr><td><b>Σύνολο αγώνα</b></td><td><b>$matchTotal</b></td><td><b>${if (matchTotal > 0) "100.0%" else "0.0%"}</b></td></tr>")
         html.append("</table><p class='small'>Τα δεδομένα προέρχονται από τις καταγραφές της εφαρμογής. Επιλέξτε «Αποθήκευση ως PDF» στο μενού εκτύπωσης.</p></body></html>")
         val webView = android.webkit.WebView(this)
         webView.settings.defaultTextEncodingName = "UTF-8"
