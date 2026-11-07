@@ -1858,7 +1858,8 @@ class MainActivity : AppCompatActivity() {
                 val colored = if (count > 0 && count == maxCount) "<b style='color:#c00000'>$pct</b>" else pct
                 html.append("<tr><td>${escape(name)} — ${escape(pos)}</td><td>$count</td><td>$colored</td></tr>")
             }
-            html.append("<tr><td><b>Σύνολο R$rotation</b></td><td><b>$total</b></td><td><b>${if (total > 0) "100.0%" else "0.0%"}</b></td></tr></table>")
+            val rotationPercentText = if (total > 0) "100.0%" else "0.0%"
+            html.append("<tr><td><b>Σύνολο R$rotation</b></td><td><b>$total</b></td><td><b>$rotationPercentText</b></td></tr></table>")
         }
 
         html.append("<h2>ΣΥΝΟΛΟ ΑΓΩΝΑ — ΥΠΟΔΟΧΕΣ</h2>")
