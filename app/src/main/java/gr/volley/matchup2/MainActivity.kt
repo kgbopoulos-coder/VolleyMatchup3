@@ -1871,7 +1871,8 @@ class MainActivity : AppCompatActivity() {
             val formatted = if (count > 0 && count == matchMax) "<b style='color:#c00000'>$pct</b>" else pct
             html.append("<tr><td>${escape(name)}</td><td>$count</td><td>$formatted</td></tr>")
         }
-        html.append("<tr><td><b>Σύνολο αγώνα</b></td><td><b>$matchTotal</b></td><td><b>${if (matchTotal > 0) "100.0%" else "0.0%"}</b></td></tr>")
+        val matchPercentText = if (matchTotal > 0) "100.0%" else "0.0%"
+        html.append("<tr><td><b>Σύνολο αγώνα</b></td><td><b>$matchTotal</b></td><td><b>$matchPercentText</b></td></tr>")
         html.append("</table><p class='small'>Τα δεδομένα προέρχονται από τις καταγραφές της εφαρμογής. Επιλέξτε «Αποθήκευση ως PDF» στο μενού εκτύπωσης.</p></body></html>")
         val webView = android.webkit.WebView(this)
         webView.settings.defaultTextEncodingName = "UTF-8"
