@@ -1864,10 +1864,12 @@ class MainActivity : AppCompatActivity() {
 
         html.append("<h2>ΣΥΝΟΛΟ ΑΓΩΝΑ — ΥΠΟΔΟΧΕΣ</h2>")
         html.append("<table><tr><th>Παίκτρια</th><th>Υποδοχές</th><th>Ποσοστό</th></tr>")
-        val matchTotal = matchTotalsByRole.values.sum()
-        val matchMax = matchTotalsByRole.values.maxOrNull() ?: 0
-        matchTotalsByRole.entries.sortedByDescending { it.value }.forEach { (role, count) ->
-            val name = teams[0].roster.firstOrNull { it.role == role }?.name?.takeIf { it.isNotBlank() } ?: role
+        val matchTotalsByPlayer = receptionByPlayerRotation.entries
+            .groupBy { it.key.substringAfter("|") }
+            .mapValues { (_, entries) -> entries.sumOf { it.value } }
+        val matchTotal = matchTotalsByPlayer.values.sum()
+        val matchMax = matchTotalsByPlayer.values.maxOrNull() ?: 0
+        matchTotalsByPlayer.entries.sortedByDescending { it.value }.forEach { (name, count) ->
             val pct = if (matchTotal == 0) "0.0%" else "%.1f%%".format(java.util.Locale.US, count * 100.0 / matchTotal)
             val formatted = if (count > 0 && count == matchMax) "<b style='color:#c00000'>$pct</b>" else pct
             html.append("<tr><td>${escape(name)}</td><td>$count</td><td>$formatted</td></tr>")
