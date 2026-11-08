@@ -2127,18 +2127,8 @@ class MainActivity : AppCompatActivity() {
                 val displayPlayer = if (displayRole == "Λ") libero else if (displayRole != null) {
                     activePlayerForRole(displayRole, ti)
                 } else null
-                // A serving player's actual rotational position is P1, regardless of
-                // the tactical attack formation displayed elsewhere on court.
-                val actualServer = if (!receiving && p == 0) {
-                    val serverIndex = selected[ti][0]
-                    val initialServer = teams[ti].roster.getOrNull(serverIndex)
-                    val replacement = initialServer?.role?.let { activePlayerForRole(it, ti) }
-                    replacement ?: initialServer
-                } else null
-                val courtPlayer = actualServer ?: displayPlayer
-                val courtRole = if (actualServer != null) actualServer.role else displayRole
                 row.addView(
-                    if (hideDuringReception) emptyCourtBox() else playerBox(ti,p,courtPlayer,courtRole,showReceptionFormation),
+                    if (hideDuringReception) emptyCourtBox() else playerBox(ti,p,displayPlayer,displayRole,showReceptionFormation),
                     LinearLayout.LayoutParams(0,150,1f)
                 )
             }
