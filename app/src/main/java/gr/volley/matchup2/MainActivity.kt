@@ -1149,7 +1149,8 @@ class MainActivity : AppCompatActivity() {
         root.addView(TextView(this).apply {
             text = if (servingTeam == 0) {
                 val ix = selected[0][0]
-                val server = if (ix in 0..13) teams[0].roster[ix] else null
+                val original = teams[0].roster.getOrNull(ix)
+                val server = original?.role?.let { activePlayerForRole(it, 0) } ?: original
                 val who = server?.let { listOf(it.number, it.name).filter { s -> s.isNotBlank() }.joinToString(" ") }
                     ?.takeIf { it.isNotBlank() } ?: "—"
                 "SERVICE: ${teams[0].name}\n🏐 SERVER: $who"
@@ -2126,8 +2127,18 @@ class MainActivity : AppCompatActivity() {
                 val displayPlayer = if (displayRole == "Λ") libero else if (displayRole != null) {
                     activePlayerForRole(displayRole, ti)
                 } else null
+                // A serving player's actual rotational position is P1, regardless of
+                // the tactical attack formation displayed elsewhere on court.
+                val actualServer = if (!receiving && p == 0) {
+                    val serverIndex = selected[ti][0]
+                    val initialServer = teams[ti].roster.getOrNull(serverIndex)
+                    val replacement = initialServer?.role?.let { activePlayerForRole(it, ti) }
+                    replacement ?: initialServer
+                } else null
+                val courtPlayer = actualServer ?: displayPlayer
+                val courtRole = if (actualServer != null) actualServer.role else displayRole
                 row.addView(
-                    if (hideDuringReception) emptyCourtBox() else playerBox(ti,p,displayPlayer,displayRole,showReceptionFormation),
+                    if (hideDuringReception) emptyCourtBox() else playerBox(ti,p,courtPlayer,courtRole,showReceptionFormation),
                     LinearLayout.LayoutParams(0,150,1f)
                 )
             }
