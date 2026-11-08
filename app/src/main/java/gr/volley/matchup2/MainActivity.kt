@@ -2175,7 +2175,7 @@ class MainActivity : AppCompatActivity() {
         gravity=Gravity.CENTER; textSize=14f; setTextColor(Color.BLACK); setPadding(4,4,4,4)
         background=GradientDrawable().apply { setColor(Color.argb(35,255,255,255)); setStroke(2,Color.WHITE) }
 
-        if (ti == 0 && !receiving && player != null && role != "Λ" && role != "Π") {
+        if (ti == 0 && !receiving && player != null && role != "Λ") {
             setOnClickListener { chooseOurAttack(player, role ?: "", pos) }
         }
         if (ti == 0 && receiving && overrideRole in arrayOf("ΑΚ1","ΑΚ2","Λ") && player != null) {
