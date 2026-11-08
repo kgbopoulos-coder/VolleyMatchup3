@@ -2054,6 +2054,25 @@ class MainActivity : AppCompatActivity() {
         return formation[pos]
     }
 
+    // Tactical roles are assigned by the coach's saved starting six, not by
+    // potentially duplicated or stale role labels in the full roster.
+    private fun tacticalPlayerForRole(ti: Int, role: String): Player? {
+        if (role == "Λ") return activePlayerForRole("Λ", ti)
+        val startingPosition = when (role) {
+            "Π" -> 0
+            "ΑΚ1" -> 1
+            "Κ2" -> 2
+            "Δ" -> 3
+            "ΑΚ2" -> 4
+            "Κ1" -> 5
+            else -> return activePlayerForRole(role, ti)
+        }
+        val starting = teams[ti].roster.getOrNull(p1Formation[ti][startingPosition])
+        val assignments = if (ti == 0) activeRolePlayers else opponentActiveRolePlayers
+        val replacement = starting?.role?.let { assignments[it] }
+        return replacement?.let { teams[ti].roster.getOrNull(it) } ?: starting
+    }
+
     private fun teamRotation(ti: Int): Int = currentRotation[ti]
 
     private fun addCourtHalf(ti:Int,title:String,opponent:Boolean){
@@ -2125,7 +2144,7 @@ class MainActivity : AppCompatActivity() {
                     !middleServing
                 ) "Λ" else baseDisplayRole
                 val displayPlayer = if (displayRole == "Λ") libero else if (displayRole != null) {
-                    activePlayerForRole(displayRole, ti)
+                    tacticalPlayerForRole(ti, displayRole)
                 } else null
                 row.addView(
                     if (hideDuringReception) emptyCourtBox() else playerBox(ti,p,displayPlayer,displayRole,showReceptionFormation),
