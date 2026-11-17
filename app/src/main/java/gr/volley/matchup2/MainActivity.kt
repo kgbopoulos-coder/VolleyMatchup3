@@ -37,7 +37,7 @@ data class Team(var name: String, val roster: MutableList<Player> = MutableList(
 
 class MainActivity : AppCompatActivity() {
     private val teams = arrayOf(Team("ΔΙΚΗ ΜΑΣ ΟΜΑΔΑ"), Team("ΑΝΤΙΠΑΛΗ ΟΜΑΔΑ"))
-    private val roles = arrayOf("Π", "ΑΚ1", "ΑΚ2", "Κ1", "Κ2", "Δ", "Λ")
+    private val roles = arrayOf("Π", "ΑΚ", "Κ", "Δ", "Λ")
     private val selected = Array(2) { IntArray(6) { -1 } }
     private val p1Formation = Array(2) { IntArray(6) { -1 } }
     private var teamIndex = 0
@@ -822,7 +822,8 @@ class MainActivity : AppCompatActivity() {
             val name=EditText(this).apply { hint="Παίκτρια ${i+1}"; setText(p.name); layoutParams=LinearLayout.LayoutParams(0,-2,2.3f) }
             val role=Spinner(this).apply {
                 adapter=ArrayAdapter(this@MainActivity,android.R.layout.simple_spinner_dropdown_item,roles)
-                val ix=roles.indexOf(p.role); if(ix>=0)setSelection(ix)
+                val normalizedRole = when (p.role) { "ΑΚ1", "ΑΚ2" -> "ΑΚ"; "Κ1", "Κ2" -> "Κ"; else -> p.role }
+                val ix=roles.indexOf(normalizedRole); if(ix>=0)setSelection(ix)
                 layoutParams=LinearLayout.LayoutParams(0,-2,1f)
             }
             no.addTextChangedListener(simpleWatcher { p.number = it })
@@ -1048,9 +1049,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun buildDefaultP1FromRoles(ti: Int) {
-        val order = arrayOf("Π","ΑΚ1","Κ1","Δ","ΑΚ2","Κ2")
+        val order = arrayOf("Π","ΑΚ","Κ","Δ","ΑΚ","Κ")
+        val used = mutableSetOf<Int>()
         order.forEachIndexed { pos, role ->
-            p1Formation[ti][pos] = teams[ti].roster.indexOfFirst { it.role == role }
+            val idx = teams[ti].roster.indexOfFirst { p ->
+                val broad = when (p.role) { "ΑΚ1", "ΑΚ2" -> "ΑΚ"; "Κ1", "Κ2" -> "Κ"; else -> p.role }
+                broad == role && teams[ti].roster.indexOf(p) !in used
+            }
+            p1Formation[ti][pos] = idx
+            if (idx >= 0) used.add(idx)
         }
     }
 
@@ -1099,14 +1106,14 @@ class MainActivity : AppCompatActivity() {
     private fun showSubstitutionDialog(ti: Int) {
         val rolesOnCourt = listOf("Π", "ΑΚ1", "ΑΚ2", "Κ1", "Κ2", "Δ", "Λ")
         val roleLabels = rolesOnCourt.map { role ->
-            val player = activePlayerForRole(role, ti)
+            val player = tacticalPlayerForRole(ti, role)
             "$role — ${player?.name?.ifBlank { "Χωρίς όνομα" } ?: "—"}"
         }.toTypedArray()
         AlertDialog.Builder(this).setTitle("ΑΛΛΑΓΗ ΠΑΙΚΤΡΙΑΣ — ΠΟΙΑ ΒΓΑΙΝΕΙ;")
             .setItems(roleLabels) { _, roleIndex ->
                 val role = rolesOnCourt[roleIndex]
-                val old = activePlayerForRole(role, ti)
-                val onCourt = rolesOnCourt.mapNotNull { activePlayerForRole(it, ti) }.toSet()
+                val old = tacticalPlayerForRole(ti, role)
+                val onCourt = rolesOnCourt.mapNotNull { tacticalPlayerForRole(ti, it) }.toSet()
                 val available = teams[ti].roster.withIndex().filter { (_, p) ->
                     p.name.isNotBlank() && p !== old && p !in onCourt
                 }
@@ -2056,21 +2063,27 @@ class MainActivity : AppCompatActivity() {
 
     // Tactical roles are assigned by the coach's saved starting six, not by
     // potentially duplicated or stale role labels in the full roster.
+    // Internal tactical slots are anchored to the six explicitly selected at P1.
+    // The roster needs only broad positions (ΑΚ, Κ); duplicate roles are safe.
+    private fun tacticalSlotPosition(role: String): Int = when (role) {
+        "Π" -> 0
+        "ΑΚ1" -> 1
+        "Κ2" -> 2
+        "Δ" -> 3
+        "ΑΚ2" -> 4
+        "Κ1" -> 5
+        else -> -1
+    }
+
     private fun tacticalPlayerForRole(ti: Int, role: String): Player? {
         if (role == "Λ") return activePlayerForRole("Λ", ti)
-        val startingPosition = when (role) {
-            "Π" -> 0
-            "ΑΚ1" -> 1
-            "Κ2" -> 2
-            "Δ" -> 3
-            "ΑΚ2" -> 4
-            "Κ1" -> 5
-            else -> return activePlayerForRole(role, ti)
-        }
-        val starting = teams[ti].roster.getOrNull(p1Formation[ti][startingPosition])
+        val pos = tacticalSlotPosition(role)
+        if (pos < 0) return activePlayerForRole(role, ti)
         val assignments = if (ti == 0) activeRolePlayers else opponentActiveRolePlayers
-        val replacement = starting?.role?.let { assignments[it] }
-        return replacement?.let { teams[ti].roster.getOrNull(it) } ?: starting
+        val override = assignments[role]
+        return if (override != null && override in teams[ti].roster.indices)
+            teams[ti].roster[override]
+        else teams[ti].roster.getOrNull(p1Formation[ti][pos])
     }
 
     private fun teamRotation(ti: Int): Int = currentRotation[ti]
@@ -2147,7 +2160,7 @@ class MainActivity : AppCompatActivity() {
                     tacticalPlayerForRole(ti, displayRole)
                 } else null
                 row.addView(
-                    if (hideDuringReception) emptyCourtBox() else playerBox(ti,p,displayPlayer,displayRole,showReceptionFormation),
+                    if (hideDuringReception) emptyCourtBox() else playerBox(ti,p,displayPlayer,displayRole?.replace("ΑΚ1","ΑΚ")?.replace("ΑΚ2","ΑΚ")?.replace("Κ1","Κ")?.replace("Κ2","Κ"),showReceptionFormation),
                     LinearLayout.LayoutParams(0,150,1f)
                 )
             }
