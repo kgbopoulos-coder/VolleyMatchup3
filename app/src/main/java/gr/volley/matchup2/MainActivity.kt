@@ -2160,7 +2160,7 @@ class MainActivity : AppCompatActivity() {
                     tacticalPlayerForRole(ti, displayRole)
                 } else null
                 row.addView(
-                    if (hideDuringReception) emptyCourtBox() else playerBox(ti,p,displayPlayer,displayRole?.replace("ΑΚ1","ΑΚ")?.replace("ΑΚ2","ΑΚ")?.replace("Κ1","Κ")?.replace("Κ2","Κ"),showReceptionFormation),
+                    if (hideDuringReception) emptyCourtBox() else playerBox(ti,p,displayPlayer,displayRole,showReceptionFormation),
                     LinearLayout.LayoutParams(0,150,1f)
                 )
             }
