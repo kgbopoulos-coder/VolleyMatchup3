@@ -1143,7 +1143,14 @@ class MainActivity : AppCompatActivity() {
                                     val entry = "${teams[ti].name} · ΣΕΤ $currentSet · ${score[0]}-${score[1]} · $role: ${old?.name ?: "—"} → ${incoming.name}"
                                     substitutionHistory.add(entry)
                                     lastActionText = "ΑΛΛΑΓΗ ${teams[ti].name}: ${old?.name ?: role} → ${incoming.name}"
-                                    if (ti == 1 && selected[1][0] in teams[1].roster.indices && old === teams[1].roster[selected[1][0]]) selected[1][0] = idx
+                                    // Preserve the actual six-player rotation after a substitution.
+                                    // A new server is determined from selected[ti][0], never from roster role.
+                                    val outgoingIndex = old?.let { teams[ti].roster.indexOf(it) } ?: -1
+                                    if (outgoingIndex >= 0) {
+                                        for (position in 0..5) {
+                                            if (selected[ti][position] == outgoingIndex) selected[ti][position] = idx
+                                        }
+                                    }
                                     saveMatchData()
                                     showCourt()
                                 }.setNegativeButton("ΑΚΥΡΟ", null).show()
@@ -1168,8 +1175,7 @@ class MainActivity : AppCompatActivity() {
         root.addView(TextView(this).apply {
             text = if (servingTeam == 0) {
                 val ix = selected[0][0]
-                val original = teams[0].roster.getOrNull(ix)
-                val server = original?.role?.let { activePlayerForRole(it, 0) } ?: original
+                val server = teams[0].roster.getOrNull(ix)
                 val who = server?.let { listOf(it.number, it.name).filter { s -> s.isNotBlank() }.joinToString(" ") }
                     ?.takeIf { it.isNotBlank() } ?: "—"
                 "SERVICE: ${teams[0].name}\n🏐 SERVER: $who"
