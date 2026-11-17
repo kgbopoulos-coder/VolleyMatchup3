@@ -804,7 +804,18 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun normalizeRosterRoles(ti: Int) {
+        teams[ti].roster.forEach { player ->
+            player.role = when (player.role) {
+                "ΑΚ1", "ΑΚ2" -> "ΑΚ"
+                "Κ1", "Κ2" -> "Κ"
+                else -> player.role
+            }
+        }
+    }
+
     private fun showRoster() {
+        normalizeRosterRoles(teamIndex)
         currentScreen = "ROSTER"
         base(if(teamIndex==0) "ΔΙΚΗ ΜΑΣ ΟΜΑΔΑ" else "ΑΝΤΙΠΑΛΗ ΟΜΑΔΑ")
 
@@ -924,6 +935,7 @@ class MainActivity : AppCompatActivity() {
                     team.roster[i].name=p?.optString("name","").orEmpty()
                     team.roster[i].role=p?.optString("role","").orEmpty()
                 }
+                normalizeRosterRoles(teamIndex)
                 val formation = obj.optJSONArray("p1Formation")
                 if (formation != null && formation.length() >= 6) {
                     for (pos in 0..5) p1Formation[teamIndex][pos] = formation.optInt(pos, -1)
