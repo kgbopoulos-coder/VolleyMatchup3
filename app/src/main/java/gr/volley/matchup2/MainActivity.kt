@@ -1488,16 +1488,7 @@ class MainActivity : AppCompatActivity() {
             // Resolve the receiver from the six players actually on court first.
             // This keeps the reception board tied to the loaded/selected P1 instead
             // of accidentally showing only the role label.
-            val player = if (role == "Λ") {
-                libero
-            } else {
-                selected[0]
-                    .asSequence()
-                    .map { ix -> teams[0].roster.getOrNull(ix) }
-                    .filterNotNull()
-                    .firstOrNull { player -> player.role == role }
-                    ?: teams[0].roster.firstOrNull { player -> player.role == role }
-            }
+            val player = tacticalPlayerForRole(0, role)
             receivers.addView(Button(this).apply {
                 text = if (player != null && player.name.isNotBlank()) {
                     "${player.name}\n[$role]"
