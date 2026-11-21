@@ -950,13 +950,81 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
+    private fun liberoCandidates(ti: Int): List<Int> =
+        teams[ti].roster.indices.filter { index ->
+            val p = teams[ti].roster[index]
+            p.role == "Λ" && p.name.isNotBlank()
+        }
+
+    private fun showLiberoSelector(ti: Int) {
+        val candidates = liberoCandidates(ti)
+        root.addView(TextView(this).apply {
+            text = "ΑΡΧΙΚΗ ΛΙΜΠΕΡΟ — ${teams[ti].name}"
+            textSize = 17f
+            gravity = Gravity.CENTER
+            setPadding(0, 18, 0, 6)
+        })
+        if (candidates.isEmpty()) {
+            root.addView(TextView(this).apply {
+                text = "Δεν υπάρχει λίμπερο στο ρόστερ."
+                gravity = Gravity.CENTER
+            })
+            return
+        }
+        val assignments = if (ti == 0) activeRolePlayers else opponentActiveRolePlayers
+        root.addView(Spinner(this).apply {
+            adapter = ArrayAdapter(this@MainActivity,
+                android.R.layout.simple_spinner_dropdown_item,
+                candidates.map { teams[ti].roster[it].name })
+            val current = assignments["Λ"]
+            val chosen = candidates.indexOf(current).takeIf { it >= 0 } ?: 0
+            setSelection(chosen)
+            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(a: AdapterView<*>?, v: View?, pos: Int, id: Long) {
+                    assignments["Λ"] = candidates[pos]
+                    saveMatchData()
+                }
+                override fun onNothingSelected(a: AdapterView<*>?) {}
+            }
+        })
+    }
+
+    private fun showLiberoChangeDialog(ti: Int) {
+        val candidates = liberoCandidates(ti)
+        if (candidates.isEmpty()) {
+            Toast.makeText(this, "Δεν υπάρχουν λίμπερο στο ρόστερ.", Toast.LENGTH_LONG).show()
+            return
+        }
+        val assignments = if (ti == 0) activeRolePlayers else opponentActiveRolePlayers
+        val old = activePlayerForRole("Λ", ti)
+        AlertDialog.Builder(this)
+            .setTitle("ΑΛΛΑΓΗ ΛΙΜΠΕΡΟ — ${teams[ti].name}")
+            .setSingleChoiceItems(candidates.map { teams[ti].roster[it].name }.toTypedArray(),
+                candidates.indexOf(assignments["Λ"]).takeIf { it >= 0 } ?: candidates.indexOfFirst {
+                    teams[ti].roster[it] === old
+                }) { dialog, choice ->
+                val idx = candidates[choice]
+                val incoming = teams[ti].roster[idx]
+                if (old !== incoming) {
+                    assignments["Λ"] = idx
+                    substitutionHistory.add("${teams[ti].name} · ΣΕΤ $currentSet · Λ: ${old?.name ?: "—"} → ${incoming.name}")
+                    lastActionText = "ΑΛΛΑΓΗ ΛΙΜΠΕΡΟ: ${old?.name ?: "—"} → ${incoming.name}"
+                    saveMatchData()
+                }
+                dialog.dismiss()
+                showCourt()
+            }.setNegativeButton("ΑΚΥΡΟ", null).show()
+    }
+
     private fun showRotationSetup() {
         currentScreen = "ROTATION"
         base("ΑΡΧΙΚΗ ΠΕΡΙΣΤΡΟΦΗ")
         addInitialRotationSelector(0)
         addRotationPreview(0)
+        showLiberoSelector(0)
         addInitialRotationSelector(1)
         addRotationPreview(1)
+        showLiberoSelector(1)
         addStartingServiceSelector()
         root.addView(button("ΠΡΟΒΟΛΗ ΣΤΟ ΓΗΠΕΔΟ"){
             applyInitialRotations()
@@ -1197,6 +1265,8 @@ class MainActivity : AppCompatActivity() {
             setPadding(0,0,0,8)
         })
         root.addView(button("↶  ΑΝΑΙΡΕΣΗ") { undoLastAction() })
+        root.addView(button("ΑΛΛΑΓΗ ΛΙΜΠΕΡΟ — ΔΙΚΗ ΜΑΣ") { showLiberoChangeDialog(0) })
+        root.addView(button("ΑΛΛΑΓΗ ΛΙΜΠΕΡΟ — ΑΝΤΙΠΑΛΗ") { showLiberoChangeDialog(1) })
         root.addView(button("ΑΛΛΑΓΗ ΠΑΙΚΤΡΙΑΣ — ΔΙΚΗ ΜΑΣ") { showSubstitutionDialog(0) })
         root.addView(button("ΑΛΛΑΓΗ ΠΑΙΚΤΡΙΑΣ — ΑΝΤΙΠΑΛΗ") { showSubstitutionDialog(1) })
 
