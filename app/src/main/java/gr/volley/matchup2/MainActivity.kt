@@ -1998,7 +1998,7 @@ class MainActivity : AppCompatActivity() {
             arrayOf("ΑΚ1","ΑΚ2","Λ").sortedByDescending { matchReceptionCounts[it] ?: 0 }.forEach { role ->
                 val n=matchReceptionCounts[role]?:0
                 val pct=((n*100.0)/serviceTotal).toInt()
-                val name=teams[0].roster.firstOrNull{it.role==role}?.name?.takeIf{it.isNotBlank()}?:role
+                val name = if (role == "Λ") activePlayerForRole("Λ", 0)?.name ?: role else tacticalPlayerForRole(0, role)?.name ?: role
                 root.addView(TextView(this).apply {
                     text="$name: $n/$serviceTotal ($pct%)"
                     textSize=15f; setPadding(0,4,0,4)
@@ -2020,16 +2020,21 @@ class MainActivity : AppCompatActivity() {
                 val server=teams[1].roster.getOrNull(lineup[0])
                 val serverName=server?.name?.takeIf{it.isNotBlank()} ?: "—"
 
-                val targets=counts.entries.filter{it.value>0}.sortedByDescending{it.value}.joinToString(" — ") { (role,n) ->
-                    val receiver=teams[0].roster.firstOrNull{it.role==role}
-                    val receiverName=receiver?.name?.takeIf{it.isNotBlank()} ?: role
-                    val pct=if(total==0) 0 else (n*100.0/total).toInt()
-                    val posCounts=(1..6).associateWith { p -> receptionCountsByRotation["P$r|$role|P$p"] ?: 0 }
-                    val receiverPos=posCounts.maxByOrNull { it.value }?.takeIf { it.value>0 }?.key
-                    val posText=receiverPos?.let{"P$it"} ?: role
-                    "$receiverName ($posText) $n ($pct%)"
+                // Use recorded receiver names, not the first roster entry with a matching role.
+                // This also preserves the correct player after a libero substitution.
+                val recorded = receptionByPlayerRotation.entries
+                    .filter { it.key.startsWith("P$r|") }
+                    .groupBy { it.key.substringAfter("|") }
+                    .mapValues { (_, entries) -> entries.sumOf { it.value } }
+                val recordedTotal = recorded.values.sum()
+                val targets = recorded.entries.sortedByDescending { it.value }.joinToString(" — ") { (name, n) ->
+                    val pct = if (recordedTotal == 0) 0 else (n * 100.0 / recordedTotal).toInt()
+                    val pos = receptionByPlayerPosition.entries
+                        .filter { it.key.startsWith("P$r|$name|") }
+                        .maxByOrNull { it.value }?.key?.substringAfterLast("|") ?: "—"
+                    "$name ($pos) $n ($pct%)"
                 }
-                val line=if(total==0) "P$r $serverName: χωρίς καταγραφή"
+                val line=if(recordedTotal==0) "P$r $serverName: χωρίς καταγραφή"
                     else "P$r $serverName σημαδεύει στο $targets"
                 root.addView(TextView(this).apply { text=line; textSize=14f; setPadding(0,3,0,3) })
             }
@@ -2070,8 +2075,14 @@ class MainActivity : AppCompatActivity() {
         for (rotation in listOf(1,6,5,4,3,2,0)) {
             root.addView(TextView(this).apply {
                 text = if (rotation == 0) "ΟΛΟΣ Ο ΑΓΩΝΑΣ" else "ΠΕΡΙΣΤΡΟΦΗ R$rotation"
-                textSize = 20f
-                setPadding(0,18,0,8)
+                textSize = 19f
+                setPadding(14, 12, 14, 12)
+                background = GradientDrawable().apply {
+                    setColor(Color.argb(20, 32, 32, 95))
+                    setStroke(2, Color.argb(80, 32, 32, 95))
+                    cornerRadius = 12f
+                }
+                layoutParams = LinearLayout.LayoutParams(-1, -2).apply { setMargins(0, 14, 0, 8) }
             })
             for (context in listOf("SIDE_OUT","TRANSITION","ΣΥΝΟΛΟ")) {
                 val entries = ourAttackStats.filterKeys { key ->
@@ -2088,11 +2099,21 @@ class MainActivity : AppCompatActivity() {
                     if (n == 0) 0.0 else plus.toDouble() / n
                 } ?: 0.0
                 root.addView(TextView(this).apply {
-                    text = context
-                    textSize = 17f
-                    setPadding(0,8,0,4)
+                    text = if (context == "ΣΥΝΟΛΟ") "ΣΥΝΟΛΟ" else context.replace("_", "-")
+                    textSize = 16f
+                    setPadding(12, 10, 12, 6)
                 })
-                if (total == 0) root.addView(TextView(this).apply { text = "Χωρίς καταγραφές" })
+                if (total == 0) root.addView(TextView(this).apply {
+                    text = "Χωρίς καταγραφές"
+                    textSize = 14f
+                    setPadding(14, 10, 14, 10)
+                    background = GradientDrawable().apply {
+                        setColor(Color.argb(10, 32, 32, 95))
+                        setStroke(1, Color.argb(55, 32, 32, 95))
+                        cornerRadius = 10f
+                    }
+                    layoutParams = LinearLayout.LayoutParams(-1, -2).apply { setMargins(4, 0, 4, 6) }
+                })
                 grouped.forEach { (label, group) ->
                     val n = group.sumOf { it.value }
                     val plus = group.filter { it.key.endsWith("|+") }.sumOf { it.value }
@@ -2107,7 +2128,13 @@ class MainActivity : AppCompatActivity() {
                     root.addView(TextView(this).apply {
                         text = Html.fromHtml(line, Html.FROM_HTML_MODE_LEGACY)
                         textSize = 15f
-                        setPadding(0,4,0,4)
+                        setPadding(14, 10, 14, 10)
+                        background = GradientDrawable().apply {
+                            setColor(Color.argb(10, 32, 32, 95))
+                            setStroke(1, Color.argb(55, 32, 32, 95))
+                            cornerRadius = 10f
+                        }
+                        layoutParams = LinearLayout.LayoutParams(-1, -2).apply { setMargins(4, 0, 4, 6) }
                     })
                 }
             }
