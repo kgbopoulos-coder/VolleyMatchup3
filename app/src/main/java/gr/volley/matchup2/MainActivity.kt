@@ -2114,29 +2114,51 @@ class MainActivity : AppCompatActivity() {
                     }
                     layoutParams = LinearLayout.LayoutParams(-1, -2).apply { setMargins(4, 0, 4, 6) }
                 })
-                grouped.forEach { (label, group) ->
-                    val n = group.sumOf { it.value }
-                    val plus = group.filter { it.key.endsWith("|+") }.sumOf { it.value }
-                    val selection = n * 100.0 / total
-                    val success = plus * 100.0 / n
-                    val selectPct = "${"%.1f".format(selection)}%"
-                    val successPct = "${"%.1f".format(success)}%"
-                    val selectionHtml = if (n == maxCount) "<font color='#D00000'><b>$selectPct</b></font>" else selectPct
-                    val successHtml = if (plus > 0 && plus.toDouble() / n == maxSuccess) "<font color='#D00000'><b>$successPct</b></font>" else successPct
-                    val safeName = android.text.TextUtils.htmlEncode(label.replace("|", " "))
-                    val line = "$safeName — $n ($selectionHtml) — +$plus / −${n-plus} — Επιτυχία $successHtml"
-                    root.addView(TextView(this).apply {
-                        text = Html.fromHtml(line, Html.FROM_HTML_MODE_LEGACY)
-                        textSize = 15f
-                        setPadding(14, 10, 14, 10)
-                        background = GradientDrawable().apply {
-                            setColor(Color.argb(10, 32, 32, 95))
-                            setStroke(1, Color.argb(55, 32, 32, 95))
-                            cornerRadius = 10f
-                        }
-                        layoutParams = LinearLayout.LayoutParams(-1, -2).apply { setMargins(4, 0, 4, 6) }
-                    })
+                // Compact, side-by-side cards: short player name, successful/total,
+                // and success percentage. Red count and red success are independent.
+                val cards = LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL
                 }
+                grouped.entries.chunked(3).forEach { chunk ->
+                    val cardRow = LinearLayout(this).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        gravity = Gravity.TOP
+                    }
+                    chunk.forEach { (label, group) ->
+                        val n = group.sumOf { it.value }
+                        val plus = group.filter { it.key.endsWith("|+") }.sumOf { it.value }
+                        val success = if (n == 0) 0.0 else plus.toDouble() / n
+                        val name = label.substringAfter("|").trim().take(3)
+                        val countHtml = if (n > 0 && n == maxCount)
+                            "<font color='#D00000'><b>$plus/$n</b></font>" else "$plus/$n"
+                        val successText = "${"%.1f".format(success * 100)}%"
+                        val successHtml = if (plus > 0 && success == maxSuccess)
+                            "<font color='#D00000'><b>$successText</b></font>" else successText
+                        val card = TextView(this).apply {
+                            text = Html.fromHtml(
+                                "<b>${android.text.TextUtils.htmlEncode(name)}</b><br/>$countHtml<br/>$successHtml",
+                                Html.FROM_HTML_MODE_LEGACY
+                            )
+                            textSize = 15f
+                            gravity = Gravity.CENTER
+                            minHeight = 105
+                            setPadding(4, 10, 4, 10)
+                            background = GradientDrawable().apply {
+                                setColor(Color.argb(10, 32, 32, 95))
+                                setStroke(2, Color.argb(85, 32, 32, 95))
+                                cornerRadius = 12f
+                            }
+                        }
+                        cardRow.addView(card, LinearLayout.LayoutParams(0, -2, 1f).apply {
+                            setMargins(3, 3, 3, 3)
+                        })
+                    }
+                    repeat(3 - chunk.size) {
+                        cardRow.addView(android.widget.Space(this), LinearLayout.LayoutParams(0, 1, 1f))
+                    }
+                    cards.addView(cardRow)
+                }
+                root.addView(cards)
             }
         }
         root.addView(button("ΠΙΣΩ") { showCourt() })
