@@ -2011,7 +2011,7 @@ class MainActivity : AppCompatActivity() {
                     Triple(who, n, plus)
                 }.sortedByDescending { it.second }
                 if (rows.isEmpty()) continue
-                html.append("<h3>$label</h3>")
+                html.append("<h3>$label — $total επιθέσεις</h3>")
                 val maxN = rows.maxOf { it.second }
                 val maxSuccess = rows.maxOf { if (it.second == 0) 0.0 else it.third.toDouble() / it.second }
                 html.append("<table><tr><th>Ζώνη / Παίκτρια</th><th>Επιθέσεις</th><th>Επιλογή</th><th>+</th><th>−</th><th>Επιτυχία</th></tr>")
@@ -2037,7 +2037,7 @@ class MainActivity : AppCompatActivity() {
                 .mapValues { (_, entries) -> entries.sumOf { it.value } }
             val total = counts.values.sum()
             val maxCount = counts.values.maxOrNull() ?: 0
-            html.append("<h3>ΠΕΡΙΣΤΡΟΦΗ R$rotation</h3>")
+            html.append("<h3>ΠΕΡΙΣΤΡΟΦΗ R$rotation — $total υποδοχές</h3>")
             html.append("<table><tr><th>Παίκτρια / Θέση</th><th>Υποδοχές</th><th>Ποσοστό</th></tr>")
             counts.entries.sortedByDescending { it.value }.forEach { (name, count) ->
                 val pos = receptionByPlayerPosition.entries
@@ -2045,7 +2045,7 @@ class MainActivity : AppCompatActivity() {
                     .maxByOrNull { it.value }?.key?.substringAfterLast("|") ?: "—"
                 val pct = if (total == 0) "0.0%" else "%.1f%%".format(java.util.Locale.US, count * 100.0 / total)
                 val colored = if (count > 0 && count == maxCount) "<b style='color:#c00000'>$pct</b>" else pct
-                html.append("<tr><td>${escape(name)} — ${escape(pos)}</td><td>$count</td><td>$colored</td></tr>")
+                html.append("<tr><td>${escape(name)} (${escape(pos.removePrefix("P"))})</td><td>$count</td><td>$colored</td></tr>")
             }
             val rotationPercentText = if (total > 0) "100.0%" else "0.0%"
             html.append("<tr><td><b>Σύνολο R$rotation</b></td><td><b>$total</b></td><td><b>$rotationPercentText</b></td></tr></table>")
@@ -2134,10 +2134,10 @@ class MainActivity : AppCompatActivity() {
                     val pos = receptionByPlayerPosition.entries
                         .filter { it.key.startsWith("P$r|$name|") }
                         .maxByOrNull { it.value }?.key?.substringAfterLast("|") ?: "—"
-                    "$name ($pos) $n ($pct%)"
+                    "$name (${pos.removePrefix("P")}) $n ($pct%)"
                 }
                 val line=if(recordedTotal==0) "P$r $serverName: χωρίς καταγραφή"
-                    else "P$r $serverName σημαδεύει στο $targets"
+                    else "P$r — Σύνολο $recordedTotal υποδοχές — $serverName σημαδεύει στο $targets"
                 root.addView(TextView(this).apply { text=line; textSize=14f; setPadding(0,3,0,3) })
             }
         }
@@ -2201,7 +2201,7 @@ class MainActivity : AppCompatActivity() {
                     if (n == 0) 0.0 else plus.toDouble() / n
                 } ?: 0.0
                 root.addView(TextView(this).apply {
-                    text = if (context == "ΣΥΝΟΛΟ") "ΣΥΝΟΛΟ" else context.replace("_", "-")
+                    text = (if (context == "ΣΥΝΟΛΟ") "ΣΥΝΟΛΟ" else context.replace("_", "-")) + " — $total επιθέσεις"
                     textSize = 16f
                     setPadding(12, 10, 12, 6)
                 })
@@ -2231,6 +2231,7 @@ class MainActivity : AppCompatActivity() {
                         val plus = group.filter { it.key.endsWith("|+") }.sumOf { it.value }
                         val success = if (n == 0) 0.0 else plus.toDouble() / n
                         val name = label.substringAfter("|").trim().take(3)
+                        val position = label.substringBefore("|").removePrefix("P")
                         val countHtml = if (n > 0 && n == maxCount)
                             "<font color='#D00000'><b>$plus/$n</b></font>" else "$plus/$n"
                         val successText = "${"%.1f".format(success * 100)}%"
@@ -2238,7 +2239,7 @@ class MainActivity : AppCompatActivity() {
                             "<font color='#D00000'><b>$successText</b></font>" else successText
                         val card = TextView(this).apply {
                             text = Html.fromHtml(
-                                "<b>${android.text.TextUtils.htmlEncode(name)}</b><br/>$countHtml<br/>$successHtml",
+                                "<b>${android.text.TextUtils.htmlEncode(name)} ($position)</b><br/>$countHtml<br/>$successHtml",
                                 Html.FROM_HTML_MODE_LEGACY
                             )
                             textSize = 15f
