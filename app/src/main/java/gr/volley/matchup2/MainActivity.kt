@@ -1651,44 +1651,81 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun ourAttackPanel(title: String, context: String): TextView = TextView(this).apply {
+    private fun ourAttackPanel(title: String, context: String): LinearLayout {
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(8, 10, 8, 10)
+            background = GradientDrawable().apply {
+                setColor(Color.argb(15, 30, 30, 70))
+                setStroke(2, Color.rgb(32, 32, 95))
+                cornerRadius = 10f
+            }
+        }
         val rotation = teamRotation(0)
+        panel.addView(TextView(this).apply {
+            text = "$title — R$rotation"
+            gravity = Gravity.CENTER
+            textSize = 15f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+        })
         val entries = ourAttackStats.filterKeys { key ->
-            val parts = key.split("|")
-            parts.size == 6 && parts[0] == context && parts[1] == rotation.toString()
+            val p = key.split("|")
+            p.size == 6 && p[0] == context && p[1] == rotation.toString()
+        }
+        val groups = entries.entries.groupBy { e ->
+            e.key.split("|").let { p -> "${p[2]}|${p[4]}" }
         }
         val total = entries.values.sum()
-        val groups = entries.entries.groupBy { entry ->
-            entry.key.split("|").let { parts -> "${parts[2]}|${parts[4]}" }
+        if (total == 0) {
+            panel.addView(TextView(this).apply {
+                text = "Χωρίς καταγραφή"
+                gravity = Gravity.CENTER
+                textSize = 14f
+            })
+            return panel
         }
-        val maxCount = groups.values.maxOfOrNull { group -> group.sumOf { it.value } } ?: 0
-        val maxSuccess = groups.values.maxOfOrNull { group ->
+        val stats = groups.map { (key, group) ->
             val n = group.sumOf { it.value }
             val plus = group.filter { it.key.endsWith("|+") }.sumOf { it.value }
-            if (n == 0) 0.0 else plus.toDouble() / n
-        } ?: 0.0
-        val rows = if (total == 0) "Χωρίς καταγραφή" else groups.entries
-            .sortedByDescending { it.value.sumOf { e -> e.value } }
-            .joinToString("<br>") { (label, group) ->
-                val count = group.sumOf { it.value }
-                val plus = group.filter { it.key.endsWith("|+") }.sumOf { it.value }
-                val selection = count * 100.0 / total
-                val success = plus * 100.0 / count
-                val selectPct = "${"%.1f".format(selection)}%"
-                val successPct = "${"%.1f".format(success)}%"
-                val selectionHtml = if (count == maxCount) "<font color='#D00000'><b>$selectPct</b></font>" else selectPct
-                val successHtml = if (plus > 0 && plus.toDouble() / count == maxSuccess) "<font color='#D00000'><b>$successPct</b></font>" else successPct
-                "${android.text.TextUtils.htmlEncode(label.replace("|", " "))}: $count/$total ($selectionHtml)  +$plus / -${count - plus}  Επιτυχία $successHtml"
+            Triple(key, n, plus)
+        }.sortedByDescending { it.second }
+        val maxN = stats.maxOf { it.second }
+        val maxRate = stats.maxOf { it.third.toDouble() / it.second }
+        stats.chunked(3).forEach { chunk ->
+            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            chunk.forEach { (key, n, plus) ->
+                val p = key.split("|")
+                val name = p.getOrElse(1) { "—" }.take(3)
+                val zone = p.firstOrNull() ?: "—"
+                val rate = plus.toDouble() / n
+                val nHtml = if (n == maxN) "<font color='#D00000'><b>$n</b></font>" else "$n"
+                val pct = "${"%.1f".format(rate * 100)}%"
+                val rateHtml = if (plus > 0 && rate == maxRate)
+                    "<font color='#D00000'><b>$pct</b></font>" else pct
+                val card = TextView(this).apply {
+                    text = Html.fromHtml(
+                        "<b>${android.text.TextUtils.htmlEncode(name)} ($zone)</b><br/>$nHtml/$total<br/>+$plus / -${n - plus}<br/>$rateHtml",
+                        Html.FROM_HTML_MODE_LEGACY
+                    )
+                    gravity = Gravity.CENTER
+                    textSize = 13f
+                    setPadding(3, 10, 3, 10)
+                    background = GradientDrawable().apply {
+                        setColor(Color.argb(12, 32, 32, 95))
+                        setStroke(2, Color.argb(85, 32, 32, 95))
+                        cornerRadius = 10f
+                    }
+                }
+                row.addView(card, LinearLayout.LayoutParams(0, -2, 1f).apply {
+                    setMargins(2, 4, 2, 4)
+                })
             }
-        text = Html.fromHtml("<b>$title — R$rotation</b><br>$rows", Html.FROM_HTML_MODE_LEGACY)
-        gravity = Gravity.CENTER
-        textSize = 15f
-        setPadding(8, 10, 8, 10)
-        background = GradientDrawable().apply {
-            setColor(Color.argb(15, 30, 30, 70))
-            setStroke(2, Color.rgb(32, 32, 95))
-            cornerRadius = 10f
+            repeat(3 - chunk.size) {
+                row.addView(android.widget.Space(this), LinearLayout.LayoutParams(0, 1, 1f))
+            }
+            panel.addView(row)
         }
+        return panel
     }
 
     private fun chooseOurAttack(player: Player, role: String, pos: Int) {
@@ -1756,24 +1793,60 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun patternPanel(title: String, counts: Map<String, Int>, total: Int, prefix: String? = null, backs: Map<String,Int>? = null, fronts: Map<String,Int>? = null): TextView =
-        TextView(this).apply {
-            val html = buildString {
-                append("<b>").append(title).append("</b>")
-                if (!prefix.isNullOrBlank()) append("<br>").append(prefix)
-                append("<br>").append(patternHtml(counts, total, backs, fronts))
-            }
-            text = Html.fromHtml(html, Html.FROM_HTML_MODE_LEGACY)
-            gravity = Gravity.CENTER
-            textSize = 14f
-            setPadding(14,12,14,12)
+    private fun patternPanel(title: String, counts: Map<String, Int>, total: Int, prefix: String? = null, backs: Map<String,Int>? = null, fronts: Map<String,Int>? = null): LinearLayout {
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(8, 10, 8, 10)
             background = GradientDrawable().apply {
-                setColor(Color.argb(22,32,32,95))
-                setStroke(2, Color.rgb(32,32,95))
+                setColor(Color.argb(22, 32, 32, 95))
+                setStroke(2, Color.rgb(32, 32, 95))
                 cornerRadius = 14f
             }
-            layoutParams = LinearLayout.LayoutParams(-1,-2).apply { setMargins(0,0,0,12) }
+            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { setMargins(0, 0, 0, 12) }
         }
+        panel.addView(TextView(this).apply {
+            text = title
+            gravity = Gravity.CENTER
+            textSize = 14f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+        })
+        if (!prefix.isNullOrBlank()) panel.addView(TextView(this).apply {
+            text = prefix
+            gravity = Gravity.CENTER
+            textSize = 13f
+        })
+        val keys = listOf("ΑΚ1", "ΑΚ2", "Λ")
+        val highest = keys.maxOf { counts[it] ?: 0 }
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        keys.forEach { role ->
+            val n = counts[role] ?: 0
+            val percent = if (total == 0) 0.0 else n * 100.0 / total
+            val name = if (role == "Λ") activePlayerForRole("Λ", 0)?.name
+                else tacticalPlayerForRole(0, role)?.name
+            val label = (name?.takeIf { it.isNotBlank() } ?: role).take(3)
+            val number = if (highest > 0 && n == highest)
+                "<font color='#D00000'><b>$n</b></font>" else "$n"
+            val pct = "${"%.1f".format(percent)}%"
+            val pctHtml = if (highest > 0 && n == highest)
+                "<font color='#D00000'><b>$pct</b></font>" else pct
+            row.addView(TextView(this).apply {
+                text = Html.fromHtml(
+                    "<b>${android.text.TextUtils.htmlEncode(label)}</b><br/>$number/$total<br/>$pctHtml",
+                    Html.FROM_HTML_MODE_LEGACY
+                )
+                gravity = Gravity.CENTER
+                textSize = 13f
+                setPadding(2, 10, 2, 10)
+                background = GradientDrawable().apply {
+                    setColor(Color.argb(12, 32, 32, 95))
+                    setStroke(2, Color.argb(85, 32, 32, 95))
+                    cornerRadius = 10f
+                }
+            }, LinearLayout.LayoutParams(0, -2, 1f).apply { setMargins(2, 4, 2, 4) })
+        }
+        panel.addView(row)
+        return panel
+    }
 
     private fun addReceptionCards(counts: Map<String, Int>) {
         if (counts.isEmpty() || counts.values.sum() == 0) {
