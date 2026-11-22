@@ -1775,6 +1775,52 @@ class MainActivity : AppCompatActivity() {
             layoutParams = LinearLayout.LayoutParams(-1,-2).apply { setMargins(0,0,0,12) }
         }
 
+    private fun addReceptionCards(counts: Map<String, Int>) {
+        if (counts.isEmpty() || counts.values.sum() == 0) {
+            root.addView(TextView(this).apply {
+                text = "Χωρίς καταγραφές"
+                textSize = 14f
+                setPadding(14, 8, 14, 8)
+            })
+            return
+        }
+        val total = counts.values.sum()
+        val highest = counts.values.maxOrNull() ?: 0
+        counts.entries.sortedByDescending { it.value }.chunked(3).forEach { chunk ->
+            val cardRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            chunk.forEach { (name, n) ->
+                val pct = n * 100.0 / total
+                val countText = if (n == highest && n > 0)
+                    "<font color='#D00000'><b>$n</b></font>" else "$n"
+                val pctText = if (n == highest && n > 0)
+                    "<font color='#D00000'><b>${"%.1f".format(pct)}%</b></font>"
+                    else "${"%.1f".format(pct)}%"
+                val card = TextView(this).apply {
+                    text = Html.fromHtml(
+                        "<b>${android.text.TextUtils.htmlEncode(name.take(3))}</b><br/>$countText/$total<br/>$pctText",
+                        Html.FROM_HTML_MODE_LEGACY
+                    )
+                    gravity = Gravity.CENTER
+                    textSize = 15f
+                    minHeight = 105
+                    setPadding(4, 10, 4, 10)
+                    background = GradientDrawable().apply {
+                        setColor(Color.argb(10, 32, 32, 95))
+                        setStroke(2, Color.argb(85, 32, 32, 95))
+                        cornerRadius = 12f
+                    }
+                }
+                cardRow.addView(card, LinearLayout.LayoutParams(0, -2, 1f).apply {
+                    setMargins(3, 3, 3, 3)
+                })
+            }
+            repeat(3 - chunk.size) {
+                cardRow.addView(android.widget.Space(this), LinearLayout.LayoutParams(0, 1, 1f))
+            }
+            root.addView(cardRow)
+        }
+    }
+
     private fun showServicePattern() {
         currentScreen = "PATTERN"
         base("ΜΟΤΙΒΟ SERVICE")
@@ -1817,15 +1863,7 @@ class MainActivity : AppCompatActivity() {
 
         val overall = receptionByPlayerRotation.entries.groupBy { it.key.substringAfter("|") }
             .mapValues { (_, entries) -> entries.sumOf { it.value } }
-        val maxOverall = overall.values.maxOrNull() ?: 0
-        overall.entries.sortedByDescending { it.value }.forEach { (name, n) ->
-            val row = "${android.text.TextUtils.htmlEncode(name)}: $n (${pct(n)}%)"
-            root.addView(TextView(this).apply {
-                text = Html.fromHtml(if (n > 0 && n == maxOverall) "<font color='#D00000'><b>$row</b></font>" else row, Html.FROM_HTML_MODE_LEGACY)
-                textSize = 16f
-                setPadding(0, 8, 0, 8)
-            })
-        }
+        addReceptionCards(overall)
 
         root.addView(TextView(this).apply {
             text = "ΑΝΑ ΠΕΡΙΣΤΡΟΦΗ"
@@ -1863,21 +1901,12 @@ class MainActivity : AppCompatActivity() {
             val serverPlayer = teams[1].roster.getOrNull(serverIx)
             val serverName = serverPlayer?.name?.takeIf { it.isNotBlank() } ?: "—"
             val rotTotal = counts.values.sum()
-            val maxInRotation = counts.values.maxOrNull() ?: 0
-            val detail = if (rotTotal == 0) "χωρίς καταγραφή" else
-                counts.entries.sortedByDescending { it.value }.joinToString(" — ") { (name, n) ->
-                    val position = receptionByPlayerPosition.entries
-                        .filter { it.key.startsWith("P$rotation|$name|") }
-                        .maxByOrNull { it.value }?.key?.substringAfterLast("|") ?: "—"
-                    val row = "${android.text.TextUtils.htmlEncode(name)} ($position) $n (${((n * 100.0) / rotTotal).toInt()}%)"
-                    if (maxInRotation > 0 && n == maxInRotation) "<font color='#D00000'><b>$row</b></font>" else row
-                }
             root.addView(TextView(this).apply {
-                text = if (rotTotal == 0) "P$rotation — SERVICE: $serverName: $detail"
-                else Html.fromHtml("<b>P$rotation — SERVICE: $serverName:</b> $detail", Html.FROM_HTML_MODE_LEGACY)
+                text = "P$rotation — SERVICE: $serverName"
                 textSize = 15f
-                setPadding(0,5,0,5)
+                setPadding(8, 8, 8, 4)
             })
+            addReceptionCards(counts)
         }
 
         root.addView(button("REPORT"){ showPatternsReport() })
